@@ -1,4 +1,4 @@
-// 1. Telegram WebApp እና የተጫዋች ስም
+// 1. Telegram WebApp እና የተጫዋች ስም ማዘጋጀት
 const tg = window.Telegram?.WebApp;
 if (tg) tg.expand();
 
@@ -13,6 +13,7 @@ let currentCartelaId = null;
 let currentNumbersList = [];
 let selectedRoom = 10;
 let onlinePlayers = 1;
+let isGameStopped = false;
 
 // -- የድምፅ ማጫወቻ --
 let audioCtx;
@@ -50,10 +51,12 @@ function playSound(type) {
     } catch(e) {}
 }
 
-// 🎯 3. ዋናው መክፈቻ ፈንክሽን (ከ HTML በተኖች በ Onclick የሚጠራ)
+// 3. ክፍሎችን የመክፈቻ ፈንክሽን
 window.openRoom = function(room) {
     initAudio();
     selectedRoom = room;
+    isGameStopped = false;
+    calledNumbers = [];
     socket.emit('join-room', { room: selectedRoom, playerName: playerName });
     openCartelaSelectionPage(selectedRoom);
 };
@@ -69,24 +72,37 @@ socket.on('player-count', (data) => {
     } else {
         onlinePlayers = data;
     }
-    const countEl = document.getElementById('player-count-display');
-    if (countEl) countEl.innerText = `👥 በባለ ${selectedRoom} ብር መደብ ያሉ: ${onlinePlayers}`;
+    const countEl = document.getElementById('stat-players');
+    if (countEl) countEl.innerText = onlinePlayers;
 });
 
 socket.on('new-number', (data) => {
+    if (isGameStopped) return;
     if (data.room && data.room !== selectedRoom) return;
 
     const num = data.number;
     calledNumbers.push(num);
     playSound('tick');
 
-    const callingStatus = document.getElementById('calling-status');
-    if (callingStatus) callingStatus.innerText = `🎲 የተጠራው ቁጥር: ${num}`;
+    // የቅርብ ጥሪ ማሳያ
+    let letter = 'B';
+    if (num > 15 && num <= 30) letter = 'I';
+    else if (num > 30 && num <= 45) letter = 'N';
+    else if (num > 45 && num <= 60) letter = 'G';
+    else if (num > 60) letter = 'O';
 
-    const historyStatus = document.getElementById('history-status');
-    if (historyStatus) {
-        let history = calledNumbers.slice(-6, -1).reverse();
-        if (history.length > 0) historyStatus.innerText = `📜 ያለፉት: ${history.join(', ')}`;
+    const currentCallEl = document.getElementById('current-call-display');
+    if (currentCallEl) currentCallEl.innerText = `${letter}-${num}`;
+
+    const statCalledEl = document.getElementById('stat-called');
+    if (statCalledEl) statCalledEl.innerText = calledNumbers.length;
+
+    // የጎን ማስተር ቦርድ ላይ የተጠራውን ቁጥር አረንጓዴ ማድረግ
+    const masterCell = document.getElementById(`master-num-${num}`);
+    if (masterCell) {
+        masterCell.style.background = '#22c55e';
+        masterCell.style.color = '#ffffff';
+        masterCell.style.fontWeight = 'bold';
     }
 
     if (isAutoMode && currentCartelaId) {
@@ -96,6 +112,7 @@ socket.on('new-number', (data) => {
 
 socket.on('winner-announced', (data) => {
     if (data.room && data.room !== selectedRoom) return;
+    isGameStopped = true;
     playSound('win');
     alert(`🎉 🏆 እንኳን ደስ አለዎት! \n\n👤 ${data.winnerName} ባለ ${selectedRoom} ብር መደብን አሸንፏል!`);
     location.reload();
@@ -110,19 +127,15 @@ function openCartelaSelectionPage(room) {
     }
 
     container.innerHTML = `
-        <div style="padding: 15px; color: white; text-align: center;">
-            <div style="background:#1e293b; padding:10px; border-radius:8px; margin-bottom:10px; border:1px solid #3b82f6;">
-                <h2 style="color:#38bdf8; margin:0;">🎯 ባለ ${room} ብር መደብ</h2>
-                <div id="player-count-display" style="font-size:13px; color:#94a3b8; margin-top:4px;">👥 አብረዎት የሚጫወቱ: ${onlinePlayers}</div>
+        <div style="padding: 15px; color: white; text-align: center; background: #8b5cf6; min-height: 100vh;">
+            <div style="background:#7c3aed; padding:12px; border-radius:12px; margin-bottom:12px; border:1px solid #a78bfa;">
+                <h2 style="color:#ffffff; margin:0;">🎯 ባለ ${room} ብር መደብ</h2>
+                <div style="font-size:13px; color:#ddd6fe; margin-top:4px;">👥 አብረዎት የሚጫወቱ: <span id="stat-players">${onlinePlayers}</span></div>
             </div>
 
-            <h4 style="color:#cbd5e1; margin-bottom:8px;">ካርተላ ይምረጡ (#1 - #100)</h4>
+            <h4 style="color:#f3e8ff; margin-bottom:10px;">ካርተላ ይምረጡ (#1 - #100)</h4>
             
-            <div id="calling-status" style="font-size: 16px; font-weight: bold; color: #f59e0b; margin-bottom: 12px; background: #0f172a; padding: 8px; border-radius: 8px;">
-                🎲 የቁጥር ጥሪ በመጠበቅ ላይ...
-            </div>
-            
-            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; max-height: 48vh; overflow-y: auto; padding: 5px; background:#0f172a; border-radius:10px;">
+            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; max-height: 60vh; overflow-y: auto; padding: 8px; background:#6d28d9; border-radius:12px;">
                 ${cartelaButtons}
             </div>
             
@@ -131,63 +144,170 @@ function openCartelaSelectionPage(room) {
     `;
 }
 
-// 6. የ 5x5 ሰሌዳ
+// 🎯 የቢንጎ ቁጥሮች ማመንጫ (Standard B-I-N-G-O Rule)
+function getRandomUniqueNumbers(min, max, count) {
+    let nums = [];
+    while (nums.length < count) {
+        let r = Math.floor(Math.random() * (max - min + 1)) + min;
+        if (!nums.includes(r)) nums.push(r);
+    }
+    return nums;
+}
+
+// 6. የ 5x5 ሰሌዳ እና የጎን 1-75 ማስተር ቦርድ ማሳያ
 window.open5x5BingoBoard = function(cartelaId) {
     currentCartelaId = cartelaId;
     const container = document.querySelector('.app-container') || document.body;
     
-    currentNumbersList = [];
-    while (currentNumbersList.length < 25) {
-        let r = Math.floor(Math.random() * 75) + 1;
-        if (!currentNumbersList.includes(r)) currentNumbersList.push(r);
+    // በ B-I-N-G-O ህግ መሰረት ቁጥሮች ማዘጋጀት
+    const bCol = getRandomUniqueNumbers(1, 15, 5);
+    const iCol = getRandomUniqueNumbers(16, 30, 5);
+    const nCol = getRandomUniqueNumbers(31, 45, 4); // 4 ቁጥሮች (መሃሉ FREE)
+    const gCol = getRandomUniqueNumbers(46, 60, 5);
+    const oCol = getRandomUniqueNumbers(61, 75, 5);
+
+    // የ 5x5 ካርተላ ሰሌዳ መገንባት
+    let cartelaGridHTML = '';
+    const headers = ['B', 'I', 'N', 'G', 'O'];
+    const headerColors = ['#f59e0b', '#10b981', '#3b82f6', '#ef4444', '#8b5cf6'];
+
+    // Headers
+    headers.forEach((h, idx) => {
+        cartelaGridHTML += `<div style="background:${headerColors[idx]}; color:white; font-weight:bold; padding:8px 0; border-radius:6px; font-size:16px;">${h}</div>`;
+    });
+
+    // Rows (5x5)
+    for (let r = 0; r < 5; r++) {
+        // B
+        cartelaGridHTML += `<div class="bingo-cell" data-num="${bCol[r]}" onclick="toggleCell(this, ${bCol[r]})">${bCol[r]}</div>`;
+        // I
+        cartelaGridHTML += `<div class="bingo-cell" data-num="${iCol[r]}" onclick="toggleCell(this, ${iCol[r]})">${iCol[r]}</div>`;
+        // N (Middle is FREE)
+        if (r === 2) {
+            cartelaGridHTML += `<div class="bingo-cell marked" data-num="FREE" style="background:#10b981; color:white; font-weight:bold; font-size:12px;">★</div>`;
+        } else {
+            let nVal = r > 2 ? nCol[r - 1] : nCol[r];
+            cartelaGridHTML += `<div class="bingo-cell" data-num="${nVal}" onclick="toggleCell(this, ${nVal})">${nVal}</div>`;
+        }
+        // G
+        cartelaGridHTML += `<div class="bingo-cell" data-num="${gCol[r]}" onclick="toggleCell(this, ${gCol[r]})">${gCol[r]}</div>`;
+        // O
+        cartelaGridHTML += `<div class="bingo-cell" data-num="${oCol[r]}" onclick="toggleCell(this, ${oCol[r]})">${oCol[r]}</div>`;
     }
 
-    let gridCells = currentNumbersList.map((num, i) => {
-        if (i === 12) return `<div class="bingo-cell marked" data-num="FREE" style="background:#eab308; color:#000; padding:12px 2px; border-radius:6px; font-weight:bold; font-size:13px; text-align:center; display:flex; align-items:center; justify-content:center;">FREE</div>`;
-        return `<div class="bingo-cell" data-num="${num}" onclick="toggleCell(this, ${num})" style="background:#1e293b; color:#fff; padding:12px 2px; border-radius:6px; font-weight:bold; font-size:16px; text-align:center; border:1px solid #334155; cursor:pointer; display:flex; align-items:center; justify-content:center; aspect-ratio:1;">${num}</div>`;
-    }).join('');
+    // የ 1-75 የጎን ማስተር ቦርድ መገንባት (Master Board)
+    let masterBoardHTML = '';
+    const ranges = [
+        { h: 'B', min: 1, max: 15, color: '#f59e0b' },
+        { h: 'I', min: 16, max: 30, color: '#10b981' },
+        { h: 'N', min: 31, max: 45, color: '#3b82f6' },
+        { h: 'G', min: 46, max: 60, color: '#ef4444' },
+        { h: 'O', min: 61, max: 75, color: '#8b5cf6' }
+    ];
+
+    ranges.forEach(col => {
+        masterBoardHTML += `<div style="display:flex; flex-direction:column; gap:3px;">`;
+        masterBoardHTML += `<div style="background:${col.color}; color:white; font-weight:bold; font-size:11px; text-align:center; padding:2px 0; border-radius:4px;">${col.h}</div>`;
+        for (let num = col.min; num <= col.max; num++) {
+            let isAlreadyCalled = calledNumbers.includes(num);
+            let bg = isAlreadyCalled ? '#22c55e' : '#ffffff';
+            let color = isAlreadyCalled ? '#ffffff' : '#475569';
+            masterBoardHTML += `<div id="master-num-${num}" style="background:${bg}; color:${color}; font-size:10px; font-weight:600; text-align:center; padding:3px 0; border-radius:3px; border:1px solid #cbd5e1;">${num}</div>`;
+        }
+        masterBoardHTML += `</div>`;
+    });
 
     container.innerHTML = `
-        <div style="padding: 12px; text-align: center; color: white; position: relative; overflow: hidden;">
-            <div style="display:flex; justify-content:space-between; align-items:center; background:#0f172a; padding:6px 10px; border-radius:8px; margin-bottom:8px;">
-                <span style="color:#e2e8f0; font-weight:bold; font-size:13px;">🎰 ባለ ${selectedRoom} ብር መደብ</span>
-                <span id="player-count-display" style="font-size:12px; color:#94a3b8;">👥 ተጫዋቾች: ${onlinePlayers}</span>
+        <div style="background:#c8b6e2; padding:8px; min-height:100vh; font-family:sans-serif; color:#1e293b;">
+            <!-- Top Dashboard Bar -->
+            <div style="display:grid; grid-template-columns: repeat(5, 1fr); gap:4px; margin-bottom:8px; text-align:center;">
+                <div style="background:#ffffff; padding:4px 2px; border-radius:6px; border:1px solid #cbd5e1;">
+                    <div style="font-size:9px; color:#64748b;">Game ID</div>
+                    <div style="font-size:11px; font-weight:bold; color:#6b21a8;">#${Math.floor(1000 + Math.random() * 9000)}</div>
+                </div>
+                <div style="background:#ffffff; padding:4px 2px; border-radius:6px; border:1px solid #cbd5e1;">
+                    <div style="font-size:9px; color:#64748b;">Derash</div>
+                    <div style="font-size:11px; font-weight:bold; color:#6b21a8;">${selectedRoom * onlinePlayers}</div>
+                </div>
+                <div style="background:#ffffff; padding:4px 2px; border-radius:6px; border:1px solid #cbd5e1;">
+                    <div style="font-size:9px; color:#64748b;">Players</div>
+                    <div id="stat-players" style="font-size:11px; font-weight:bold; color:#6b21a8;">${onlinePlayers}</div>
+                </div>
+                <div style="background:#ffffff; padding:4px 2px; border-radius:6px; border:1px solid #cbd5e1;">
+                    <div style="font-size:9px; color:#64748b;">Stake</div>
+                    <div style="font-size:11px; font-weight:bold; color:#6b21a8;">${selectedRoom}</div>
+                </div>
+                <div style="background:#ffffff; padding:4px 2px; border-radius:6px; border:1px solid #cbd5e1;">
+                    <div style="font-size:9px; color:#64748b;">Called</div>
+                    <div id="stat-called" style="font-size:11px; font-weight:bold; color:#6b21a8;">${calledNumbers.length}</div>
+                </div>
             </div>
 
-            <h3 style="color: #4CAF50; margin: 0 0 5px 0;">ካርተላ: #${cartelaId} | 👤 ${playerName}</h3>
-            
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
-                <div style="flex: 1; margin-right: 6px;">
-                    <div id="calling-status" style="font-size: 15px; font-weight: bold; color: #f59e0b; background: #0f172a; padding: 6px; border-radius: 6px 6px 0 0; border: 1px solid #334155; border-bottom: none;">
-                        🎲 ጥሪ በመጠበቅ ላይ...
-                    </div>
-                    <div id="history-status" style="font-size: 11px; color: #cbd5e1; background: #1e293b; padding: 4px; border-radius: 0 0 6px 6px; border: 1px solid #334155;">
-                        📜 ያለፉት: -
-                    </div>
+            <!-- Current Call Banner -->
+            <div style="background:#7e22ce; color:white; border-radius:12px; padding:8px 15px; display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                <div>
+                    <div style="font-size:14px; font-weight:bold;">Current Call</div>
+                    <div style="font-size:11px; opacity:0.8;">Sound 🔊</div>
                 </div>
-                <button id="auto-btn" onclick="toggleAutoMode()" style="padding: 10px; background: #ef4444; color: white; border: none; border-radius: 6px; font-weight: bold; font-size: 12px; cursor: pointer; height: 100%;">
-                    🤖 አውቶ: Off
+                <div id="current-call-display" style="background:#f97316; color:white; font-size:22px; font-weight:extrabold; padding:4px 16px; border-radius:20px; border:2px solid #ffffff;">
+                    ${calledNumbers.length > 0 ? calledNumbers[calledNumbers.length - 1] : '-'}
+                </div>
+                <button id="auto-btn" onclick="toggleAutoMode()" style="background:#f97316; color:white; border:none; padding:6px 12px; border-radius:12px; font-weight:bold; font-size:11px; cursor:pointer;">
+                    Auto: OFF
                 </button>
             </div>
 
-            <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px; margin-top: 8px;">
-                ${gridCells}
+            <!-- Main Layout: Left Master Board (1-75) & Right Cartela -->
+            <div style="display:grid; grid-template-columns: 1.1fr 2fr; gap:8px;">
+                <!-- Left 1-75 Master Board -->
+                <div style="background:#e9d5ff; padding:6px; border-radius:10px; display:grid; grid-template-columns: repeat(5, 1fr); gap:3px; border:1px solid #c084fc;">
+                    ${masterBoardHTML}
+                </div>
+
+                <!-- Right Cartela Board -->
+                <div>
+                    <div style="text-align:center; font-weight:bold; color:#6b21a8; font-size:13px; margin-bottom:4px;">
+                        Cartela #${cartelaId}
+                    </div>
+                    <div style="display:grid; grid-template-columns: repeat(5, 1fr); gap:4px; background:#ffffff; padding:6px; border-radius:10px; text-align:center; border:2px solid #a855f7;">
+                        ${cartelaGridHTML}
+                    </div>
+                </div>
             </div>
 
-            <div style="display: flex; gap: 6px; margin-top: 15px;">
-                <button onclick="location.reload()" style="flex: 1; padding: 10px 2px; background: #3b82f6; color: white; border: none; border-radius: 6px; font-weight: bold; font-size: 13px; cursor:pointer;">🔄 ሪፍሬሽ</button>
-                <button onclick="leaveGame()" style="flex: 1; padding: 10px 2px; background: #64748b; color: white; border: none; border-radius: 6px; font-weight: bold; font-size: 13px; cursor:pointer;">🚪 ውጣ</button>
-                <button onclick="claimBingo()" style="flex: 1.4; padding: 10px 2px; background: #22c55e; color: white; border: none; border-radius: 6px; font-weight: bold; font-size: 13px; cursor:pointer;">🎉 ቢንጎ!</button>
+            <!-- Bottom Control Action Buttons -->
+            <div style="display:flex; gap:6px; margin-top:12px;">
+                <button onclick="leaveGame()" style="flex:1; padding:10px; background:#dc2626; color:white; border:none; border-radius:8px; font-weight:bold; font-size:12px; cursor:pointer;">← Leave</button>
+                <button onclick="location.reload()" style="flex:1; padding:10px; background:#2563eb; color:white; border:none; border-radius:8px; font-weight:bold; font-size:12px; cursor:pointer;">🔄 Refresh</button>
+                <button onclick="claimBingo()" style="flex:1.5; padding:10px; background:#f97316; color:white; border:none; border-radius:8px; font-weight:bold; font-size:15px; cursor:pointer; box-shadow:0 3px 6px rgba(0,0,0,0.2);">Bingo!</button>
             </div>
         </div>
+
         <style>
-            .bingo-cell.marked { background: #22c55e !important; color: white !important; font-weight: bold; }
+            .bingo-cell {
+                background: #f8fafc;
+                color: #1e293b;
+                padding: 10px 0;
+                border-radius: 6px;
+                font-weight: bold;
+                font-size: 15px;
+                border: 1px solid #cbd5e1;
+                cursor: pointer;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+            .bingo-cell.marked {
+                background: #22c55e !important;
+                color: white !important;
+            }
         </style>
     `;
 };
 
 window.toggleCell = function(element, num) {
-    if (isAutoMode) return alert("⚠️ አውቶማቲክ ሞድ በርቷል! አፑ በራሱ ያጠቁራል።");
+    if (isGameStopped) return alert("⚠️ ጨዋታው ቆሟል!");
+    if (isAutoMode) return alert("⚠️ አውቶማቲክ ሞድ በርቷል!");
     if (!calledNumbers.includes(num)) return alert("⚠️ ይህ ቁጥር ገና አልተጠራም!");
     playSound('click');
     element.classList.toggle('marked');
@@ -197,9 +317,9 @@ window.toggleAutoMode = function() {
     isAutoMode = !isAutoMode;
     const btn = document.getElementById('auto-btn');
     if (isAutoMode) {
-        btn.style.background = "#22c55e"; btn.innerText = "🤖 አውቶ: On";
+        btn.style.background = "#22c55e"; btn.innerText = "Auto: ON";
     } else {
-        btn.style.background = "#ef4444"; btn.innerText = "🤖 አውቶ: Off";
+        btn.style.background = "#f97316"; btn.innerText = "Auto: OFF";
     }
 };
 
@@ -213,7 +333,7 @@ function autoMarkAndCheck(num) {
     });
 
     if (checkBingoLocally()) {
-        socket.emit('claim-bingo', { cartelaId: currentCartelaId, winnerName: playerName, room: selectedRoom });
+        claimBingo();
     }
 }
 
@@ -249,7 +369,10 @@ window.leaveGame = function() {
 
 window.claimBingo = function() {
     if (checkBingoLocally()) {
+        isGameStopped = true; // ጥሪውን በቅጽበት ማቆም
+        playSound('win');
         socket.emit('claim-bingo', { cartelaId: currentCartelaId, winnerName: playerName, room: selectedRoom });
+        alert("🎉 ቢንጎ ተብሏል! ቁጥር መጥራቱ ቆሟል፤ ሰርቨሩ ማረጋገጫ እየሰራ ነው...");
     } else {
         alert("❌ እስካሁን ሙሉ 1 መስመር ወይም 4 ኮርነር አልሞሉም!");
     }
