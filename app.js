@@ -1,6 +1,16 @@
 // Telegram WebApp ን ማስነሳት
 const tg = window.Telegram.WebApp;
 tg.expand();
+// ከመጫወቻ ሰርቨር ጋር ማገናኛ
+const socket = io("https://betesebbingo-i1dk.onrender.com");
+
+socket.on('connect', () => {
+    console.log('ከመጫወቻ ሰርቨር ጋር ተገናኝቷል!');
+});
+
+socket.on('new-number', (data) => {
+    console.log('አዲስ የቢንጎ ቁጥር ተጠራ:', data.number);
+});
 
 // ገጾችን መቀየሪያ
 function showPage(pageId) {
