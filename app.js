@@ -20,13 +20,25 @@ let lobbyTimer = 30;
 let timerInterval = null;
 let isGameStarted = false;
 
-// -- የድምፅ ማጫወቻ --
+// 🔊 የድምፅ (Voice Text-to-Speech) እና Sound Effects
 let audioCtx;
 function initAudio() {
     if (!audioCtx) {
         try {
             audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         } catch (e) { console.log(e); }
+    }
+}
+
+// ቁጥሮችንና "Bingo" በድምፅ የሚያነብ ፈንክሽን (Text-to-Speech)
+function speakText(text) {
+    if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel(); // የቀደመው ካለ እንዲያቆም
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = 'en-US';
+        utterance.rate = 0.9;  // ድምፁ ግልጽና ረጋ ብሎ እንዲነበብ
+        utterance.pitch = 1.0;
+        window.speechSynthesis.speak(utterance);
     }
 }
 
@@ -38,11 +50,7 @@ function playSound(type) {
         osc.connect(gain);
         gain.connect(audioCtx.destination);
 
-        if (type === 'tick') {
-            osc.type = 'sine'; osc.frequency.setValueAtTime(800, audioCtx.currentTime);
-            gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
-            osc.start(); gain.gain.exponentialRampToValueAtTime(0.00001, audioCtx.currentTime + 0.1); osc.stop(audioCtx.currentTime + 0.1);
-        } else if (type === 'click') {
+        if (type === 'click') {
             osc.type = 'triangle'; osc.frequency.setValueAtTime(400, audioCtx.currentTime);
             gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
             osc.start(); gain.gain.exponentialRampToValueAtTime(0.00001, audioCtx.currentTime + 0.1); osc.stop(audioCtx.currentTime + 0.1);
@@ -77,7 +85,6 @@ function startLobbyTimer() {
     timerInterval = setInterval(() => {
         lobbyTimer--;
         
-        // በየገፁ ያሉትን የሰዓት ማሳያዎች ማሻሻል
         const timerEls = document.querySelectorAll('.lobby-timer-display');
         timerEls.forEach(el => {
             if (lobbyTimer > 0) {
@@ -112,20 +119,21 @@ socket.on('player-count', (data) => {
 });
 
 socket.on('new-number', (data) => {
-    // 30 ሰከንዱ ካላለቀ ወይም ጨዋታው ከቆመ ቁጥር አይቀበልም
     if (!isGameStarted || isGameStopped) return;
     if (data.room && data.room !== selectedRoom) return;
 
     const num = data.number;
     calledNumbers.push(num);
-    playSound('tick');
 
-    // የቅርብ ጥሪ ማሳያ
+    // B-I-N-G-O ፊደላትን መለየት
     let letter = 'B';
     if (num > 15 && num <= 30) letter = 'I';
     else if (num > 30 && num <= 45) letter = 'N';
     else if (num > 45 && num <= 60) letter = 'G';
     else if (num > 60) letter = 'O';
+
+    // 🔊 ቁጥሩን በድምፅ "B 15" ወይም "O 75" ብሎ መጥራት
+    speakText(`${letter} ${num}`);
 
     const currentCallEl = document.getElementById('current-call-display');
     if (currentCallEl) currentCallEl.innerText = `${letter}-${num}`;
@@ -149,7 +157,11 @@ socket.on('new-number', (data) => {
 socket.on('winner-announced', (data) => {
     if (data.room && data.room !== selectedRoom) return;
     isGameStopped = true;
+    
+    // 🔊 አሸናፊ ሲኖር "Bingo!" ብሎ በድምፅ መጥራት
+    speakText("Bingo!");
     playSound('win');
+
     alert(`🎉 🏆 እንኳን ደስ አለዎት! \n\n👤 ${data.winnerName} ባለ ${selectedRoom} ብር መደብን አሸንፏል!`);
     location.reload();
 });
@@ -406,6 +418,7 @@ window.claimBingo = function() {
     if (!isGameStarted) return alert("⚠️ ጨዋታው ገና አልተጀመረም!");
     if (checkBingoLocally()) {
         isGameStopped = true;
+        speakText("Bingo!");
         playSound('win');
         socket.emit('claim-bingo', { cartelaId: currentCartelaId, winnerName: playerName, room: selectedRoom });
         alert("🎉 ቢንጎ ተብሏል! ቁጥር መጥራቱ ቆሟል፤ ሰርቨሩ ማረጋገጫ እየሰራ ነው...");
