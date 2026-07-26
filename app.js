@@ -11,16 +11,19 @@ let calledNumbers = [];
 let isAutoMode = false;
 let currentCartelaId = null;
 let currentNumbersList = [];
-let selectedRoom = 10; // ነባሪ መደብ (10 ወይም 20)
+let selectedRoom = 10;
 let onlinePlayers = 1;
 
 // -- የድምፅ ማጫወቻ --
 let audioCtx;
 function initAudio() {
     if (!audioCtx) {
-        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        try {
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        } catch (e) { console.log(e); }
     }
 }
+
 function playSound(type) {
     if (!audioCtx) return;
     try {
@@ -44,33 +47,46 @@ function playSound(type) {
             gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
             osc.start(); gain.gain.exponentialRampToValueAtTime(0.00001, audioCtx.currentTime + 0.5); osc.stop(audioCtx.currentTime + 0.5);
         }
-    } catch(e) { console.log(e); }
+    } catch(e) {}
 }
 
-// 3. "ግባ ተጫወት" በተኖች በሙሉ እንዲሰሩ የሚያደርግ አጠቃላይ Listener (Global Event Delegation)
-document.addEventListener('click', function(e) {
-    const playBtn = e.target.closest('button, .btn, div, a');
-    if (playBtn && playBtn.innerText && playBtn.innerText.includes('ግባ ተጫወት')) {
-        e.preventDefault();
-        initAudio();
-        
-        // የተነካው ባለ 20 ነው ወይስ ባለ 10 ብር መደብ እንደሆነ መለየት
-        const parentCard = playBtn.closest('div, section, .card') || playBtn.parentElement;
-        const cardText = parentCard ? parentCard.innerText : '';
-        
-        if (cardText.includes('20')) {
-            selectedRoom = 20;
-        } else {
-            selectedRoom = 10;
+// 3. ክፍሎችን ቀጥታ የመክፈቻ ግሎባል ፈንክሽን
+window.openRoom = function(room) {
+    initAudio();
+    selectedRoom = room;
+    socket.emit('join-room', { room: selectedRoom, playerName: playerName });
+    openCartelaSelectionPage(selectedRoom);
+};
+
+// 4. በተኖችን በሙሉ አስገዳጅነት የማያያዝ ስራ (Bulletproof Event Attacher)
+function bindButtons() {
+    const allElements = document.querySelectorAll('button, .btn, div, a, span');
+    allElements.forEach(el => {
+        const txt = el.innerText || el.textContent || '';
+        if (txt.includes('ግባ ተጫወት')) {
+            el.style.cursor = 'pointer';
+            el.onclick = function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                
+                // ባለ 20 ወይም ባለ 10 መሆኑን ማረጋገጥ
+                const parentText = el.closest('.card, div, section')?.innerText || txt;
+                if (parentText.includes('20')) {
+                    window.openRoom(20);
+                } else {
+                    window.openRoom(10);
+                }
+            };
         }
+    });
+}
 
-        // ለሰርቨሩ ክፍሉን ማሳወቅ
-        socket.emit('join-room', { room: selectedRoom, playerName: playerName });
-        openCartelaSelectionPage(selectedRoom);
-    }
-});
+// ገጹ ሲከፈት እና በየሰከንዱ በተኖቹን ዝግጁ ማድረግ
+document.addEventListener('DOMContentLoaded', bindButtons);
+window.addEventListener('load', bindButtons);
+setInterval(bindButtons, 500);
 
-// 4. የሶኬት (Socket) ግንኙነቶች
+// 5. የሶኬት (Socket) ግንኙነቶች
 socket.on('connect', () => {
     console.log('ከባክኤንድ ሰርቨር ጋር ተገናኝቷል!');
 });
@@ -86,7 +102,6 @@ socket.on('player-count', (data) => {
 });
 
 socket.on('new-number', (data) => {
-    // የተለየ መደብ ካለ የራሱን ብቻ መቀበል
     if (data.room && data.room !== selectedRoom) return;
 
     const num = data.number;
@@ -114,7 +129,7 @@ socket.on('winner-announced', (data) => {
     location.reload();
 });
 
-// 5. የካርተላ መረጣ ገጽ (ለተመረጠው መደብ)
+// 6. የካርተላ መረጣ ገጽ
 function openCartelaSelectionPage(room) {
     const container = document.querySelector('.app-container') || document.body;
     let cartelaButtons = '';
@@ -144,7 +159,7 @@ function openCartelaSelectionPage(room) {
     `;
 }
 
-// 6. የ 5x5 ሰሌዳ ማሳያ
+// 7. የ 5x5 ሰሌዳ ማሳያ
 function open5x5BingoBoard(cartelaId) {
     currentCartelaId = cartelaId;
     const container = document.querySelector('.app-container') || document.body;
@@ -230,14 +245,14 @@ function autoMarkAndCheck(num) {
     }
 }
 
-// 🎯 ቢንጎ መፈተሻ (1 መስመር ወይም 4 ኮርነር)
 function checkBingoLocally() {
-    const cells = document.querySelectorAll('.bingo-cell');
-    if (cells.length < 25) return false;
+    const cells = document.querySelector('.app-container') || document.body;
+    const cellsList = cells.querySelectorAll('.bingo-cell');
+    if (cellsList.length < 25) return false;
     
     let grid = [];
     for(let i=0; i<25; i++) {
-        grid.push(cells[i].classList.contains('marked'));
+        grid.push(cellsList[i].classList.contains('marked'));
     }
 
     // Rows
