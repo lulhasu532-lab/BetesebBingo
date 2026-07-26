@@ -1,4 +1,4 @@
-// 1. Telegram WebApp እና የተጫዋች ስም ማዘጋጀት
+// 1. Telegram WebApp እና የተጫዋች ስም
 const tg = window.Telegram?.WebApp;
 if (tg) tg.expand();
 
@@ -50,7 +50,7 @@ function playSound(type) {
     } catch(e) {}
 }
 
-// 3. ክፍሎችን ቀጥታ የመክፈቻ ግሎባል ፈንክሽን
+// 🎯 3. ዋናው መክፈቻ ፈንክሽን (ከ HTML በተኖች በ Onclick የሚጠራ)
 window.openRoom = function(room) {
     initAudio();
     selectedRoom = room;
@@ -58,35 +58,7 @@ window.openRoom = function(room) {
     openCartelaSelectionPage(selectedRoom);
 };
 
-// 4. በተኖችን በሙሉ አስገዳጅነት የማያያዝ ስራ (Bulletproof Event Attacher)
-function bindButtons() {
-    const allElements = document.querySelectorAll('button, .btn, div, a, span');
-    allElements.forEach(el => {
-        const txt = el.innerText || el.textContent || '';
-        if (txt.includes('ግባ ተጫወት')) {
-            el.style.cursor = 'pointer';
-            el.onclick = function(e) {
-                e.preventDefault();
-                e.stopPropagation();
-                
-                // ባለ 20 ወይም ባለ 10 መሆኑን ማረጋገጥ
-                const parentText = el.closest('.card, div, section')?.innerText || txt;
-                if (parentText.includes('20')) {
-                    window.openRoom(20);
-                } else {
-                    window.openRoom(10);
-                }
-            };
-        }
-    });
-}
-
-// ገጹ ሲከፈት እና በየሰከንዱ በተኖቹን ዝግጁ ማድረግ
-document.addEventListener('DOMContentLoaded', bindButtons);
-window.addEventListener('load', bindButtons);
-setInterval(bindButtons, 500);
-
-// 5. የሶኬት (Socket) ግንኙነቶች
+// 4. የሶኬት (Socket) ክስተቶች
 socket.on('connect', () => {
     console.log('ከባክኤንድ ሰርቨር ጋር ተገናኝቷል!');
 });
@@ -129,7 +101,7 @@ socket.on('winner-announced', (data) => {
     location.reload();
 });
 
-// 6. የካርተላ መረጣ ገጽ
+// 5. የካርተላ መረጣ ገጽ
 function openCartelaSelectionPage(room) {
     const container = document.querySelector('.app-container') || document.body;
     let cartelaButtons = '';
@@ -159,8 +131,8 @@ function openCartelaSelectionPage(room) {
     `;
 }
 
-// 7. የ 5x5 ሰሌዳ ማሳያ
-function open5x5BingoBoard(cartelaId) {
+// 6. የ 5x5 ሰሌዳ
+window.open5x5BingoBoard = function(cartelaId) {
     currentCartelaId = cartelaId;
     const container = document.querySelector('.app-container') || document.body;
     
@@ -212,16 +184,16 @@ function open5x5BingoBoard(cartelaId) {
             .bingo-cell.marked { background: #22c55e !important; color: white !important; font-weight: bold; }
         </style>
     `;
-}
+};
 
-function toggleCell(element, num) {
+window.toggleCell = function(element, num) {
     if (isAutoMode) return alert("⚠️ አውቶማቲክ ሞድ በርቷል! አፑ በራሱ ያጠቁራል።");
     if (!calledNumbers.includes(num)) return alert("⚠️ ይህ ቁጥር ገና አልተጠራም!");
     playSound('click');
     element.classList.toggle('marked');
-}
+};
 
-function toggleAutoMode() {
+window.toggleAutoMode = function() {
     isAutoMode = !isAutoMode;
     const btn = document.getElementById('auto-btn');
     if (isAutoMode) {
@@ -229,7 +201,7 @@ function toggleAutoMode() {
     } else {
         btn.style.background = "#ef4444"; btn.innerText = "🤖 አውቶ: Off";
     }
-}
+};
 
 function autoMarkAndCheck(num) {
     const cells = document.querySelectorAll('.bingo-cell');
@@ -246,8 +218,7 @@ function autoMarkAndCheck(num) {
 }
 
 function checkBingoLocally() {
-    const cells = document.querySelector('.app-container') || document.body;
-    const cellsList = cells.querySelectorAll('.bingo-cell');
+    const cellsList = document.querySelectorAll('.bingo-cell');
     if (cellsList.length < 25) return false;
     
     let grid = [];
@@ -272,14 +243,14 @@ function checkBingoLocally() {
     return false;
 }
 
-function leaveGame() {
+window.leaveGame = function() {
     if (confirm("ጨዋታውን መልቀቅ ትፈልጋለህ?")) location.reload();
-}
+};
 
-function claimBingo() {
+window.claimBingo = function() {
     if (checkBingoLocally()) {
         socket.emit('claim-bingo', { cartelaId: currentCartelaId, winnerName: playerName, room: selectedRoom });
     } else {
         alert("❌ እስካሁን ሙሉ 1 መስመር ወይም 4 ኮርነር አልሞሉም!");
     }
-}
+};
