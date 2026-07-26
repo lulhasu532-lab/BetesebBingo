@@ -10,7 +10,14 @@ socket.on('connect', () => {
 
 socket.on('new-number', (data) => {
     console.log('አዲስ የቢንጎ ቁጥር ተጠራ:', data.number);
+    
+    // በስክሪኑ ላይ ያለውን ጽሑፍ በአዲሱ ቁጥር መተካት
+    const statusText = document.querySelector('.game-status') || document.querySelector('p');
+    if (statusText) {
+        statusText.innerText = 'የተጠራው ቁጥር: ' + data.number;
+    }
 });
+
 
 // ገጾችን መቀየሪያ
 function showPage(pageId) {
