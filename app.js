@@ -15,58 +15,41 @@ let selectedRoom = 10;
 let onlinePlayers = 1;
 let isGameStopped = false;
 
-// ⏱️ የ 30 ሰከንድ ቆጠራ ተغيرዎች
+// ⏱️ የ 30 ሰከንድ ቆጠራ
 let lobbyTimer = 30;
 let timerInterval = null;
 let isGameStarted = false;
 
-// 🔊 የድምፅ (Voice Text-to-Speech) እና Sound Effects
-let audioCtx;
-function initAudio() {
-    if (!audioCtx) {
-        try {
-            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        } catch (e) { console.log(e); }
-    }
-}
+// 🔊 የድምፅ ማጫወቻ ማስተካከያ
+let isVoiceAllowed = false;
 
-// ቁጥሮችንና "Bingo" በድምፅ የሚያነብ ፈንክሽን (Text-to-Speech)
+// ድምፅ በስልኩ እንዲፈቀድ ተጫዋች ስክሪን ሲነካ ይነቃቃል
+document.addEventListener('click', () => {
+    if (!isVoiceAllowed) {
+        isVoiceAllowed = true;
+        // ባዶ ድምፅ በማጫወት የስልክ Audio Engine እንዲነቃ ማድረግ
+        const emptyUtterance = new SpeechSynthesisUtterance('');
+        window.speechSynthesis.speak(emptyUtterance);
+    }
+}, { once: true });
+
 function speakText(text) {
     if ('speechSynthesis' in window) {
-        window.speechSynthesis.cancel(); // የቀደመው ካለ እንዲያቆም
-        const utterance = new SpeechSynthesisUtterance(text);
-        utterance.lang = 'en-US';
-        utterance.rate = 0.9;  // ድምፁ ግልጽና ረጋ ብሎ እንዲነበብ
-        utterance.pitch = 1.0;
-        window.speechSynthesis.speak(utterance);
-    }
-}
-
-function playSound(type) {
-    if (!audioCtx) return;
-    try {
-        const osc = audioCtx.createOscillator();
-        const gain = audioCtx.createGain();
-        osc.connect(gain);
-        gain.connect(audioCtx.destination);
-
-        if (type === 'click') {
-            osc.type = 'triangle'; osc.frequency.setValueAtTime(400, audioCtx.currentTime);
-            gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
-            osc.start(); gain.gain.exponentialRampToValueAtTime(0.00001, audioCtx.currentTime + 0.1); osc.stop(audioCtx.currentTime + 0.1);
-        } else if (type === 'win') {
-            osc.type = 'square'; osc.frequency.setValueAtTime(400, audioCtx.currentTime);
-            osc.frequency.setValueAtTime(600, audioCtx.currentTime + 0.1);
-            osc.frequency.setValueAtTime(800, audioCtx.currentTime + 0.2);
-            gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
-            osc.start(); gain.gain.exponentialRampToValueAtTime(0.00001, audioCtx.currentTime + 0.5); osc.stop(audioCtx.currentTime + 0.5);
+        try {
+            window.speechSynthesis.cancel(); // የቀደመው ድምፅ ካለ እንዲያቆም
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.lang = 'en-US';
+            utterance.rate = 0.85;  // ረጋ ብሎ እንዲያነብ
+            utterance.volume = 1.0; // ከፍተኛ ድምፅ
+            window.speechSynthesis.speak(utterance);
+        } catch (e) {
+            console.log("Audio Error:", e);
         }
-    } catch(e) {}
+    }
 }
 
 // 3. ክፍሎችን የመክፈቻ ፈንክሽን
 window.openRoom = function(room) {
-    initAudio();
     selectedRoom = room;
     isGameStopped = false;
     isGameStarted = false;
@@ -132,7 +115,7 @@ socket.on('new-number', (data) => {
     else if (num > 45 && num <= 60) letter = 'G';
     else if (num > 60) letter = 'O';
 
-    // 🔊 ቁጥሩን በድምፅ "B 15" ወይም "O 75" ብሎ መጥራት
+    // 🔊 ቁጥሩን በድምፅ መጥራት ("B 15", "O 75")
     speakText(`${letter} ${num}`);
 
     const currentCallEl = document.getElementById('current-call-display');
@@ -158,9 +141,8 @@ socket.on('winner-announced', (data) => {
     if (data.room && data.room !== selectedRoom) return;
     isGameStopped = true;
     
-    // 🔊 አሸናፊ ሲኖር "Bingo!" ብሎ በድምፅ መጥራት
+    // 🔊 "Bingo!" ብሎ በድምፅ መጥራት
     speakText("Bingo!");
-    playSound('win');
 
     alert(`🎉 🏆 እንኳን ደስ አለዎት! \n\n👤 ${data.winnerName} ባለ ${selectedRoom} ብር መደብን አሸንፏል!`);
     location.reload();
@@ -181,7 +163,6 @@ function openCartelaSelectionPage(room) {
                 <div style="font-size:13px; color:#ddd6fe; margin-top:4px;">👥 አብረዎት የሚጫወቱ: <span id="stat-players">${onlinePlayers}</span></div>
             </div>
 
-            <!-- የ 30 ሰከንድ ቆጠራ ማሳያ -->
             <div class="lobby-timer-display" style="background:#ffe4e6; color:#e11d48; font-weight:bold; font-size:16px; padding:10px; border-radius:10px; margin-bottom:12px; border:2px solid #fb7185;">
                 ⏳ ጨዋታው ለመጀመር: ${lobbyTimer} ሰከንድ
             </div>
@@ -262,7 +243,6 @@ window.open5x5BingoBoard = function(cartelaId) {
 
     container.innerHTML = `
         <div style="background:#c8b6e2; padding:8px; min-height:100vh; font-family:sans-serif; color:#1e293b;">
-            <!-- Top Dashboard Bar -->
             <div style="display:grid; grid-template-columns: repeat(5, 1fr); gap:4px; margin-bottom:6px; text-align:center;">
                 <div style="background:#ffffff; padding:4px 2px; border-radius:6px; border:1px solid #cbd5e1;">
                     <div style="font-size:9px; color:#64748b;">Game ID</div>
@@ -286,12 +266,10 @@ window.open5x5BingoBoard = function(cartelaId) {
                 </div>
             </div>
 
-            <!-- Timer Bar inside Game -->
             <div class="lobby-timer-display" style="text-align:center; font-size:12px; font-weight:bold; color:#f97316; margin-bottom:6px; background:#ffffff; padding:4px; border-radius:6px;">
                 ${isGameStarted ? '🎮 ጨዋታው ተጀምሯል!' : `⏳ ጨዋታው ለመጀመር: ${lobbyTimer} ሰከንድ`}
             </div>
 
-            <!-- Current Call Banner -->
             <div style="background:#7e22ce; color:white; border-radius:12px; padding:8px 15px; display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
                 <div>
                     <div style="font-size:14px; font-weight:bold;">Current Call</div>
@@ -305,7 +283,6 @@ window.open5x5BingoBoard = function(cartelaId) {
                 </button>
             </div>
 
-            <!-- Main Layout -->
             <div style="display:grid; grid-template-columns: 1.1fr 2fr; gap:8px;">
                 <div style="background:#e9d5ff; padding:6px; border-radius:10px; display:grid; grid-template-columns: repeat(5, 1fr); gap:3px; border:1px solid #c084fc;">
                     ${masterBoardHTML}
@@ -321,7 +298,6 @@ window.open5x5BingoBoard = function(cartelaId) {
                 </div>
             </div>
 
-            <!-- Bottom Control Action Buttons -->
             <div style="display:flex; gap:6px; margin-top:10px;">
                 <button onclick="leaveGame()" style="flex:1; padding:10px; background:#dc2626; color:white; border:none; border-radius:8px; font-weight:bold; font-size:12px; cursor:pointer;">← Leave</button>
                 <button onclick="location.reload()" style="flex:1; padding:10px; background:#2563eb; color:white; border:none; border-radius:8px; font-weight:bold; font-size:12px; cursor:pointer;">🔄 Refresh</button>
@@ -352,11 +328,10 @@ window.open5x5BingoBoard = function(cartelaId) {
 };
 
 window.toggleCell = function(element, num) {
-    if (!isGameStarted) return alert("⚠️ ጨዋታው ገና አልተጀመረም! እባክዎን 30 ሰከንዱ እስኪያልቅ ይታገሱ።");
+    if (!isGameStarted) return alert("⚠️ ጨዋታው ገና አልተጀመረም!");
     if (isGameStopped) return alert("⚠️ ጨዋታው ቆሟል!");
     if (isAutoMode) return alert("⚠️ አውቶማቲክ ሞድ በርቷል!");
     if (!calledNumbers.includes(num)) return alert("⚠️ ይህ ቁጥር ገና አልተጠራም!");
-    playSound('click');
     element.classList.toggle('marked');
 };
 
@@ -375,7 +350,6 @@ function autoMarkAndCheck(num) {
     cells.forEach(cell => {
         if (cell.getAttribute('data-num') == num) {
             cell.classList.add('marked');
-            playSound('click');
         }
     });
 
@@ -393,18 +367,14 @@ function checkBingoLocally() {
         grid.push(cellsList[i].classList.contains('marked'));
     }
 
-    // Rows
     for(let r=0; r<5; r++) {
         if(grid[r*5] && grid[r*5+1] && grid[r*5+2] && grid[r*5+3] && grid[r*5+4]) return true;
     }
-    // Columns
     for(let c=0; c<5; c++) {
         if(grid[c] && grid[c+5] && grid[c+10] && grid[c+15] && grid[c+20]) return true;
     }
-    // Diagonals
     if(grid[0] && grid[6] && grid[12] && grid[18] && grid[24]) return true;
     if(grid[4] && grid[8] && grid[12] && grid[16] && grid[20]) return true;
-    // 4 Corners
     if(grid[0] && grid[4] && grid[20] && grid[24]) return true;
 
     return false;
@@ -419,7 +389,6 @@ window.claimBingo = function() {
     if (checkBingoLocally()) {
         isGameStopped = true;
         speakText("Bingo!");
-        playSound('win');
         socket.emit('claim-bingo', { cartelaId: currentCartelaId, winnerName: playerName, room: selectedRoom });
         alert("🎉 ቢንጎ ተብሏል! ቁጥር መጥራቱ ቆሟል፤ ሰርቨሩ ማረጋገጫ እየሰራ ነው...");
     } else {
