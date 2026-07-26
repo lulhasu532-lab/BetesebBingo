@@ -3,91 +3,37 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Beteseb Bingo</title>
+    <title>One Bingo</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
-
-    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <style>
+        body { background-color: #0f172a; color: white; font-family: sans-serif; margin: 0; padding: 15px; }
+        .card { background: #1e293b; border-radius: 12px; padding: 15px; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center; border: 1px solid #334155; }
+        .btn { background: #2563eb; color: white; border: none; padding: 10px 18px; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 14px; }
+        .btn:active { transform: scale(0.96); }
+    </style>
 </head>
 <body>
-
     <div class="app-container">
-        
-        <header class="top-status-bar">
-            <div class="status-item left">
-                <span class="label">💰 ዋሌት</span>
-                <span class="value" id="wallet-balance">0.00</span> <small>ETB</small>
-            </div>
-            <div class="status-item center">
-                <span class="label">🏆 ሽልማት</span>
-                <span class="value highlight" id="prize-pool">0</span> <small>ETB</small>
-            </div>
-            <div class="status-item right">
-                <span class="label">👥 ተጫዋች</span>
-                <span class="value" id="active-players">0</span>
-            </div>
-        </header>
+        <h2 style="text-align: center; color: #38bdf8;">እንኳን ወደ ቤተሰብ ቢንጎ መጡ! 👋</h2>
+        <p style="text-align: center; color: #94a3b8; font-size: 13px;">ለመጫወት ከታች ካሉት መደቦች አንዱን ይምረጡ</p>
 
-        <div id="home-page" class="page active">
-            <div class="welcome-banner">
-                <h3>እንኳን ወደ ቤተሰብ ቢንጎ መጡ! 👋</h3>
-                <p>ለመጫወት ከታች ካሉት መደቦች አንዱን ይምረጡ</p>
+        <!-- ባለ 10 ብር መደብ -->
+        <div class="card">
+            <div>
+                <h3 style="margin: 0; color: #38bdf8;">ባለ 10 ብር መደብ</h3>
+                <span style="font-size: 11px; color: #22c55e;">ሸልማት፡ ተጫዋቾች እንደገቡ የሚሰላ</span>
             </div>
-
-            <div class="rooms-container">
-                <div class="entry-card card-10">
-                    <div class="card-detail">
-                        <h4>ባለ 10 ብር መደብ</h4>
-                        <span>ሽልማት፡ ተጫዋቾች እንደገቡ የሚሰላ</span>
-                    </div>
-                    <button class="action-btn" onclick="openCardSelection(10)">ግባና ተጫወት</button>
-                </div>
-
-                <div class="entry-card card-20">
-                    <div class="card-detail">
-                        <h4>ባለ 20 ብር መደብ</h4>
-                        <span>ሽልማት፡ ተጫዋቾች እንደገቡ የሚሰላ</span>
-                    </div>
-                    <button class="action-btn" onclick="openCardSelection(20)">ግባና ተጫወት</button>
-                </div>
-            </div>
+            <button onclick="openRoom(10)" class="btn">ግባ ተጫወት</button>
         </div>
 
-        <div id="card-selection-page" class="page">
-            <div class="selection-header">
-                <div class="timer-box">
-                    ⏳ ጨዋታው ለመጀመር የቀረው ጊዜ፡ <span id="countdown-timer">60</span> ሰከንድ
-                </div>
-                <p class="instruction">ከታች ካሉት 100 ካርቴላዎች የፈለጉትን ይግዙ (ይጫኑ)</p>
+        <!-- ባለ 20 ብር መደብ -->
+        <div class="card">
+            <div>
+                <h3 style="margin: 0; color: #38bdf8;">ባለ 20 ብር መደብ</h3>
+                <span style="font-size: 11px; color: #22c55e;">ሸልማት፡ ተጫዋቾች እንደገቡ የሚሰላ</span>
             </div>
-
-            <div class="cards-grid" id="cards-grid-container"></div>
-
-            <button class="back-btn" onclick="goBackToHome()">⬅️ ወደ ኋላ ተመለስ</button>
-        </div>
-
-        <div id="game-play-page" class="page">
-            <div class="current-call-container">
-                <div class="caller-circle" id="current-called-number">🔊...</div>
-                <p class="call-status">የቁጥር ጥሪ በመደረግ ላይ ነው...</p>
-            </div>
-
-            <div class="game-board-flex">
-                <div class="board-75-grid" id="board-75-container"></div>
-                <div class="player-active-cards" id="player-cards-container"></div>
-            </div>
-        </div>
-
-    </div>
-
-    <div id="winner-popup" class="winner-overlay">
-        <div class="winner-modal">
-            <h2 class="winner-title">🎉 BINGO! 🎉</h2>
-            <h4 class="winner-card-id">🏆 አሸናፊ ካርቴላ ቁጥር: <span id="win-card-number">#00</span></h4>
-            
-            <div class="zoomed-card" id="zoomed-card-matrix"></div>
-            
-            <p class="popup-timer">ይህ ገጽ በ <span id="popup-countdown">10</span> ሰከንድ ውስጥ ይዘጋል...</p>
+            <button onclick="openRoom(20)" class="btn">ግባ ተጫወት</button>
         </div>
     </div>
 
