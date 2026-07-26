@@ -15,6 +15,11 @@ let selectedRoom = 10;
 let onlinePlayers = 1;
 let isGameStopped = false;
 
+// ⏱️ የ 30 ሰከንድ ቆጠራ ተغيرዎች
+let lobbyTimer = 30;
+let timerInterval = null;
+let isGameStarted = false;
+
 // -- የድምፅ ማጫወቻ --
 let audioCtx;
 function initAudio() {
@@ -56,10 +61,40 @@ window.openRoom = function(room) {
     initAudio();
     selectedRoom = room;
     isGameStopped = false;
+    isGameStarted = false;
     calledNumbers = [];
     socket.emit('join-room', { room: selectedRoom, playerName: playerName });
     openCartelaSelectionPage(selectedRoom);
+    startLobbyTimer();
 };
+
+// ⏱️ የ 30 ሰከንድ ቆጠራ ማስጀመሪያ
+function startLobbyTimer() {
+    clearInterval(timerInterval);
+    lobbyTimer = 30;
+    isGameStarted = false;
+
+    timerInterval = setInterval(() => {
+        lobbyTimer--;
+        
+        // በየገፁ ያሉትን የሰዓት ማሳያዎች ማሻሻል
+        const timerEls = document.querySelectorAll('.lobby-timer-display');
+        timerEls.forEach(el => {
+            if (lobbyTimer > 0) {
+                el.innerText = `⏳ ጨዋታው ለመጀመር: ${lobbyTimer} ሰከንድ`;
+                el.style.color = "#f97316";
+            } else {
+                el.innerText = `🎮 ጨዋታው ተጀምሯል!`;
+                el.style.color = "#22c55e";
+            }
+        });
+
+        if (lobbyTimer <= 0) {
+            clearInterval(timerInterval);
+            isGameStarted = true;
+        }
+    }, 1000);
+}
 
 // 4. የሶኬት (Socket) ክስተቶች
 socket.on('connect', () => {
@@ -77,7 +112,8 @@ socket.on('player-count', (data) => {
 });
 
 socket.on('new-number', (data) => {
-    if (isGameStopped) return;
+    // 30 ሰከንዱ ካላለቀ ወይም ጨዋታው ከቆመ ቁጥር አይቀበልም
+    if (!isGameStarted || isGameStopped) return;
     if (data.room && data.room !== selectedRoom) return;
 
     const num = data.number;
@@ -118,7 +154,7 @@ socket.on('winner-announced', (data) => {
     location.reload();
 });
 
-// 5. የካርተላ መረጣ ገጽ
+// 5. የካርተላ መረጣ ገጽ (30 ሰከንድ ታይመር ያለው)
 function openCartelaSelectionPage(room) {
     const container = document.querySelector('.app-container') || document.body;
     let cartelaButtons = '';
@@ -128,14 +164,19 @@ function openCartelaSelectionPage(room) {
 
     container.innerHTML = `
         <div style="padding: 15px; color: white; text-align: center; background: #8b5cf6; min-height: 100vh;">
-            <div style="background:#7c3aed; padding:12px; border-radius:12px; margin-bottom:12px; border:1px solid #a78bfa;">
+            <div style="background:#7c3aed; padding:12px; border-radius:12px; margin-bottom:10px; border:1px solid #a78bfa;">
                 <h2 style="color:#ffffff; margin:0;">🎯 ባለ ${room} ብር መደብ</h2>
                 <div style="font-size:13px; color:#ddd6fe; margin-top:4px;">👥 አብረዎት የሚጫወቱ: <span id="stat-players">${onlinePlayers}</span></div>
             </div>
 
+            <!-- የ 30 ሰከንድ ቆጠራ ማሳያ -->
+            <div class="lobby-timer-display" style="background:#ffe4e6; color:#e11d48; font-weight:bold; font-size:16px; padding:10px; border-radius:10px; margin-bottom:12px; border:2px solid #fb7185;">
+                ⏳ ጨዋታው ለመጀመር: ${lobbyTimer} ሰከንድ
+            </div>
+
             <h4 style="color:#f3e8ff; margin-bottom:10px;">ካርተላ ይምረጡ (#1 - #100)</h4>
             
-            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; max-height: 60vh; overflow-y: auto; padding: 8px; background:#6d28d9; border-radius:12px;">
+            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; max-height: 55vh; overflow-y: auto; padding: 8px; background:#6d28d9; border-radius:12px;">
                 ${cartelaButtons}
             </div>
             
@@ -144,7 +185,7 @@ function openCartelaSelectionPage(room) {
     `;
 }
 
-// 🎯 የቢንጎ ቁጥሮች ማመንጫ (Standard B-I-N-G-O Rule)
+// 🎯 የቢንጎ ቁጥሮች ማመንጫ
 function getRandomUniqueNumbers(min, max, count) {
     let nums = [];
     while (nums.length < count) {
@@ -159,43 +200,33 @@ window.open5x5BingoBoard = function(cartelaId) {
     currentCartelaId = cartelaId;
     const container = document.querySelector('.app-container') || document.body;
     
-    // በ B-I-N-G-O ህግ መሰረት ቁጥሮች ማዘጋጀት
     const bCol = getRandomUniqueNumbers(1, 15, 5);
     const iCol = getRandomUniqueNumbers(16, 30, 5);
-    const nCol = getRandomUniqueNumbers(31, 45, 4); // 4 ቁጥሮች (መሃሉ FREE)
+    const nCol = getRandomUniqueNumbers(31, 45, 4);
     const gCol = getRandomUniqueNumbers(46, 60, 5);
     const oCol = getRandomUniqueNumbers(61, 75, 5);
 
-    // የ 5x5 ካርተላ ሰሌዳ መገንባት
     let cartelaGridHTML = '';
     const headers = ['B', 'I', 'N', 'G', 'O'];
     const headerColors = ['#f59e0b', '#10b981', '#3b82f6', '#ef4444', '#8b5cf6'];
 
-    // Headers
     headers.forEach((h, idx) => {
         cartelaGridHTML += `<div style="background:${headerColors[idx]}; color:white; font-weight:bold; padding:8px 0; border-radius:6px; font-size:16px;">${h}</div>`;
     });
 
-    // Rows (5x5)
     for (let r = 0; r < 5; r++) {
-        // B
         cartelaGridHTML += `<div class="bingo-cell" data-num="${bCol[r]}" onclick="toggleCell(this, ${bCol[r]})">${bCol[r]}</div>`;
-        // I
         cartelaGridHTML += `<div class="bingo-cell" data-num="${iCol[r]}" onclick="toggleCell(this, ${iCol[r]})">${iCol[r]}</div>`;
-        // N (Middle is FREE)
         if (r === 2) {
             cartelaGridHTML += `<div class="bingo-cell marked" data-num="FREE" style="background:#10b981; color:white; font-weight:bold; font-size:12px;">★</div>`;
         } else {
             let nVal = r > 2 ? nCol[r - 1] : nCol[r];
             cartelaGridHTML += `<div class="bingo-cell" data-num="${nVal}" onclick="toggleCell(this, ${nVal})">${nVal}</div>`;
         }
-        // G
         cartelaGridHTML += `<div class="bingo-cell" data-num="${gCol[r]}" onclick="toggleCell(this, ${gCol[r]})">${gCol[r]}</div>`;
-        // O
         cartelaGridHTML += `<div class="bingo-cell" data-num="${oCol[r]}" onclick="toggleCell(this, ${oCol[r]})">${oCol[r]}</div>`;
     }
 
-    // የ 1-75 የጎን ማስተር ቦርድ መገንባት (Master Board)
     let masterBoardHTML = '';
     const ranges = [
         { h: 'B', min: 1, max: 15, color: '#f59e0b' },
@@ -220,7 +251,7 @@ window.open5x5BingoBoard = function(cartelaId) {
     container.innerHTML = `
         <div style="background:#c8b6e2; padding:8px; min-height:100vh; font-family:sans-serif; color:#1e293b;">
             <!-- Top Dashboard Bar -->
-            <div style="display:grid; grid-template-columns: repeat(5, 1fr); gap:4px; margin-bottom:8px; text-align:center;">
+            <div style="display:grid; grid-template-columns: repeat(5, 1fr); gap:4px; margin-bottom:6px; text-align:center;">
                 <div style="background:#ffffff; padding:4px 2px; border-radius:6px; border:1px solid #cbd5e1;">
                     <div style="font-size:9px; color:#64748b;">Game ID</div>
                     <div style="font-size:11px; font-weight:bold; color:#6b21a8;">#${Math.floor(1000 + Math.random() * 9000)}</div>
@@ -243,6 +274,11 @@ window.open5x5BingoBoard = function(cartelaId) {
                 </div>
             </div>
 
+            <!-- Timer Bar inside Game -->
+            <div class="lobby-timer-display" style="text-align:center; font-size:12px; font-weight:bold; color:#f97316; margin-bottom:6px; background:#ffffff; padding:4px; border-radius:6px;">
+                ${isGameStarted ? '🎮 ጨዋታው ተጀምሯል!' : `⏳ ጨዋታው ለመጀመር: ${lobbyTimer} ሰከንድ`}
+            </div>
+
             <!-- Current Call Banner -->
             <div style="background:#7e22ce; color:white; border-radius:12px; padding:8px 15px; display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
                 <div>
@@ -257,14 +293,12 @@ window.open5x5BingoBoard = function(cartelaId) {
                 </button>
             </div>
 
-            <!-- Main Layout: Left Master Board (1-75) & Right Cartela -->
+            <!-- Main Layout -->
             <div style="display:grid; grid-template-columns: 1.1fr 2fr; gap:8px;">
-                <!-- Left 1-75 Master Board -->
                 <div style="background:#e9d5ff; padding:6px; border-radius:10px; display:grid; grid-template-columns: repeat(5, 1fr); gap:3px; border:1px solid #c084fc;">
                     ${masterBoardHTML}
                 </div>
 
-                <!-- Right Cartela Board -->
                 <div>
                     <div style="text-align:center; font-weight:bold; color:#6b21a8; font-size:13px; margin-bottom:4px;">
                         Cartela #${cartelaId}
@@ -276,7 +310,7 @@ window.open5x5BingoBoard = function(cartelaId) {
             </div>
 
             <!-- Bottom Control Action Buttons -->
-            <div style="display:flex; gap:6px; margin-top:12px;">
+            <div style="display:flex; gap:6px; margin-top:10px;">
                 <button onclick="leaveGame()" style="flex:1; padding:10px; background:#dc2626; color:white; border:none; border-radius:8px; font-weight:bold; font-size:12px; cursor:pointer;">← Leave</button>
                 <button onclick="location.reload()" style="flex:1; padding:10px; background:#2563eb; color:white; border:none; border-radius:8px; font-weight:bold; font-size:12px; cursor:pointer;">🔄 Refresh</button>
                 <button onclick="claimBingo()" style="flex:1.5; padding:10px; background:#f97316; color:white; border:none; border-radius:8px; font-weight:bold; font-size:15px; cursor:pointer; box-shadow:0 3px 6px rgba(0,0,0,0.2);">Bingo!</button>
@@ -306,6 +340,7 @@ window.open5x5BingoBoard = function(cartelaId) {
 };
 
 window.toggleCell = function(element, num) {
+    if (!isGameStarted) return alert("⚠️ ጨዋታው ገና አልተጀመረም! እባክዎን 30 ሰከንዱ እስኪያልቅ ይታገሱ።");
     if (isGameStopped) return alert("⚠️ ጨዋታው ቆሟል!");
     if (isAutoMode) return alert("⚠️ አውቶማቲክ ሞድ በርቷል!");
     if (!calledNumbers.includes(num)) return alert("⚠️ ይህ ቁጥር ገና አልተጠራም!");
@@ -368,8 +403,9 @@ window.leaveGame = function() {
 };
 
 window.claimBingo = function() {
+    if (!isGameStarted) return alert("⚠️ ጨዋታው ገና አልተጀመረም!");
     if (checkBingoLocally()) {
-        isGameStopped = true; // ጥሪውን በቅጽበት ማቆም
+        isGameStopped = true;
         playSound('win');
         socket.emit('claim-bingo', { cartelaId: currentCartelaId, winnerName: playerName, room: selectedRoom });
         alert("🎉 ቢንጎ ተብሏል! ቁጥር መጥራቱ ቆሟል፤ ሰርቨሩ ማረጋገጫ እየሰራ ነው...");
