@@ -74,7 +74,7 @@ io.on('connection', (socket) => {
         if (player) {
             player.eliminated = true;
             socket.emit('falseBingoEliminated', {
-                message: '🚫 ጨዋታው ይቀጥላል እርስዎ ግን ከጨዋታው ተሰናብተዋል እባክዎት ጨዋታው እስኪያልቅ ጠብቀው በቀጣይ ዙር ይሳተፉ🙏'
+                message: '🚫 ጨዋታው ይቀጥላል፤ እርስዎ ግን ተሰናብተዋል! በቀጣይ ዙር ይሳተፉ🙏'
             });
         }
     });
@@ -87,7 +87,6 @@ io.on('connection', (socket) => {
     });
 });
 
-// Lobby Timer Logic
 function startLobbyTimer(stake) {
     const room = rooms[stake];
     room.timer = 15;
@@ -106,7 +105,6 @@ function startLobbyTimer(stake) {
     }, 1000);
 }
 
-// 🎲 Automatic Number Calling Logic (በየ 3 ሰከንዱ ቁጥር መጥሪያ)
 function startGameCallingNumbers(stake) {
     const room = rooms[stake];
     room.calledNumbers = [];
@@ -124,12 +122,11 @@ function startGameCallingNumbers(stake) {
 
         room.calledNumbers.push(randomNum);
 
-        // ለተጫዋቾች በሙሉ ቁጥሩን መላክ
         io.to(`room_${stake}`).emit('numberCalled', {
             number: randomNum,
             history: room.calledNumbers
         });
-    }, 3000); // በየ3 ሰከንዱ አዲስ ቁጥር ይጠራል
+    }, 3000);
 }
 
 const PORT = process.env.PORT || 3000;
