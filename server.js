@@ -5,7 +5,9 @@ const path = require('path');
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server);
+const io = new Server(server, {
+    cors: { origin: "*" }
+});
 
 app.use(express.static(__dirname));
 app.use(express.json());
@@ -14,11 +16,33 @@ app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'index.html'));
 });
 
-// Rooms Definition
+// Helper function to build a clean room state
+function createRoom(stake) {
+    return {
+        stake: stake,
+        players: {},
+        timer: 15,
+        isStarted: false,
+        calledNumbers: [],
+        occupiedCartelas: {},
+        timerInterval: null,
+        numberInterval: null
+    };
+}
+
 let rooms = {
-    '10': { stake: 10, players: {}, timer: 15, isStarted: false, calledNumbers: [], occupiedCartelas: {}, timerInterval: null, numberInterval: null },
-    '20': { stake: 20, players: {}, timer: 15, isStarted: false, calledNumbers: [], occupiedCartelas: {}, timerInterval: null, numberInterval: null }
+    '10': createRoom(10),
+    '20': createRoom(20)
 };
+
+// Reset Room when game ends
+function resetRoom(stake) {
+    if (rooms[stake]) {
+        if (rooms[stake].timerInterval) clearInterval(rooms[stake].timerInterval);
+        if (rooms[stake].numberInterval) clearInterval(rooms[stake].numberInterval);
+    }
+    rooms[stake] = createRoom(stake);
+}
 
 io.on('connection', (socket) => {
     socket.on('initUser', (userData) => {
@@ -32,7 +56,7 @@ io.on('connection', (socket) => {
     });
 
     socket.on('joinRoom', ({ stake }) => {
-        const room = rooms[stake];
+        let room = rooms[stake];
         if (!room) return;
 
         socket.join(`room_${stake}`);
@@ -41,6 +65,12 @@ io.on('connection', (socket) => {
         const onlineCount = io.sockets.adapter.rooms.get(`room_${stake}`)?.size || 0;
         io.to(`room_${stake}`).emit('updateOnlineCount', onlineCount);
 
+        // If previous game finished or got stuck, reset clean
+        if (room.isStarted && room.calledNumbers.length >= 75) {
+            resetRoom(stake);
+            room = rooms[stake];
+        }
+
         socket.emit('roomState', {
             isStarted: room.isStarted,
             timer: room.timer,
@@ -48,14 +78,15 @@ io.on('connection', (socket) => {
             calledNumbers: room.calledNumbers
         });
 
-        if (!room.timerInterval && !room.isStarted) {
+        // Auto start 15-second lobby timer if not already running
+        if (!room.isStarted && !room.timerInterval) {
             startLobbyTimer(stake);
         }
     });
 
     socket.on('selectCartela', ({ stake, cartelaId }) => {
         const room = rooms[stake];
-        if (!room || room.isStarted) return;
+        if (!room) return;
 
         if (room.occupiedCartelas[cartelaId]) return;
 
@@ -112,6 +143,9 @@ function startGameCallingNumbers(stake) {
     room.numberInterval = setInterval(() => {
         if (room.calledNumbers.length >= 75) {
             clearInterval(room.numberInterval);
+            room.numberInterval = null;
+            // Reset room 5 seconds after all numbers called
+            setTimeout(() => resetRoom(stake), 5000);
             return;
         }
 
