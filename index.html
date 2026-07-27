@@ -12,6 +12,7 @@
             --purple-card: #eadef7;
             --disabled-color: #888888;
             --selected-color: #d32f2f;
+            --marked-color: #4caf50;
         }
 
         * { box-sizing: border-box; }
@@ -41,11 +42,11 @@
             background: linear-gradient(135deg, #7b1fa2, #4a148c);
             color: white;
             text-align: center;
-            padding: 20px;
+            padding: 15px;
             border-radius: 20px;
-            font-size: 22px;
+            font-size: 20px;
             font-weight: bold;
-            margin-bottom: 15px;
+            margin-bottom: 10px;
         }
 
         .stake-card {
@@ -66,16 +67,16 @@
             font-size: 18px;
             font-weight: bold;
             cursor: pointer;
-            display: block;
         }
         .stake-10 { background-color: #00897b; }
         .stake-20 { background-color: #fb8c00; }
 
+        /* Cartela Selection Grid */
         .cartela-grid {
             display: grid;
             grid-template-columns: repeat(4, 1fr);
             gap: 8px;
-            max-height: 400px;
+            max-height: 380px;
             overflow-y: auto;
             margin-top: 10px;
         }
@@ -88,7 +89,6 @@
             border-radius: 8px;
             font-weight: bold;
             cursor: pointer;
-            transition: background 0.2s;
         }
 
         .cartela-item.occupied {
@@ -97,10 +97,55 @@
             opacity: 0.6;
         }
 
-        .cartela-item.my-selection {
-            background-color: var(--selected-color) !important;
-            color: white;
+        /* 5x5 BINGO BOARD STYLES */
+        .bingo-board-container {
+            background: white;
+            padding: 10px;
+            border-radius: 15px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+            margin-top: 10px;
+        }
+
+        .bingo-header {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 5px;
+            text-align: center;
             font-weight: bold;
+            font-size: 20px;
+            color: var(--purple-main);
+            margin-bottom: 5px;
+        }
+
+        .bingo-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 5px;
+        }
+
+        .bingo-cell {
+            background-color: #f0f0f0;
+            border: 2px solid #ccc;
+            border-radius: 8px;
+            aspect-ratio: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 16px;
+            cursor: pointer;
+        }
+
+        .bingo-cell.marked {
+            background-color: var(--marked-color);
+            color: white;
+            border-color: #2e7d32;
+        }
+
+        .bingo-cell.free {
+            background-color: #ffb74d;
+            color: white;
+            font-size: 12px;
         }
 
         .overlay-msg {
@@ -124,9 +169,7 @@
             border-top-left-radius: 20px;
             border-top-right-radius: 20px;
             position: fixed;
-            bottom: 0;
-            left: 0;
-            right: 0;
+            bottom: 0; left: 0; right: 0;
             max-width: 450px;
             margin: 0 auto;
             z-index: 99;
@@ -153,23 +196,23 @@
 
 <div class="container">
     
-    <!-- 1. GAME SECTION -->
+    <!-- GAME SECTION -->
     <div id="section-game" class="view-section active-section">
         <div class="welcome-card">Welcome to One bingo</div>
-        <div style="text-align:center; margin: 15px 0;">
-            <span style="background: white; padding: 10px 20px; border-radius: 20px; font-weight: bold; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
+        <div style="text-align:center; margin-bottom: 10px;">
+            <span style="background: white; padding: 8px 18px; border-radius: 20px; font-weight: bold;">
                 👛 Balance: <span id="user-bal">0.00</span> Br
             </span>
         </div>
 
-        <!-- Stake Selection -->
+        <!-- 1. Choose Stake -->
         <div id="stake-selection" class="stake-card">
             <h2 style="margin-top: 0;">Choose Your Stake</h2>
             <button class="stake-btn stake-10" id="btn-stake-10">Play 10</button>
             <button class="stake-btn stake-20" id="btn-stake-20">Play 20</button>
         </div>
 
-        <!-- Cartela Selection -->
+        <!-- 2. Choose Cartela -->
         <div id="cartela-selection" style="display: none;">
             <div style="background: #e0f7fa; padding: 10px; border-radius: 10px; text-align: center; font-weight: bold; color: #006064;">
                 ⏳ ጨዋታው ለመጀመር: <span id="timer-count">15</span> ሰከንድ | 👥 ኦንላይን: <span id="online-count">1</span>
@@ -178,28 +221,37 @@
             <div id="cartela-grid-container" class="cartela-grid"></div>
         </div>
 
-        <!-- Play Area -->
+        <!-- 3. Playing Area with 5x5 Bingo Board -->
         <div id="play-area" style="display: none;">
-            <div style="background: white; padding: 10px; border-radius: 12px; margin-bottom: 10px; text-align: center; font-weight: bold;">
-                የመረጡት ካርተላ: <span id="selected-cartela-num" style="color: var(--purple-main); font-size: 18px;">#-</span>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <span style="background: white; padding: 6px 12px; border-radius: 8px; font-weight: bold;">
+                    ካርተላ: <span id="selected-cartela-num" style="color: var(--purple-main);">-</span>
+                </span>
+                <button id="btn-bingo" style="background: #e65100; color: white; border: none; padding: 8px 20px; border-radius: 8px; font-weight: bold; font-size: 16px; cursor: pointer;">Bingo!</button>
             </div>
-            <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
-                <button id="btn-refresh" style="background: #1976d2; color: white; border: none; padding: 10px 18px; border-radius: 8px; cursor: pointer;">🔄 Refresh</button>
-                <button id="btn-bingo" style="background: #e65100; color: white; border: none; padding: 10px 18px; border-radius: 8px; font-weight: bold; cursor: pointer;">Bingo!</button>
+
+            <!-- Display Current Called Number -->
+            <div style="text-align: center; background: white; padding: 10px; border-radius: 12px; font-size: 22px; font-weight: bold;">
+                የተጠራው ቁጥር: <span id="current-call" style="color: red; font-size: 30px;">-</span>
             </div>
-            <div id="called-number-display" style="text-align: center; font-size: 28px; background: white; padding: 15px; border-radius: 10px; margin-bottom: 10px;">
-                Current Call: <span id="current-call" style="color: red;">-</span>
+
+            <!-- 5x5 BINGO CARD GRID -->
+            <div class="bingo-board-container">
+                <div class="bingo-header">
+                    <span>B</span><span>I</span><span>N</span><span>G</span><span>O</span>
+                </div>
+                <div id="bingo-board" class="bingo-grid"></div>
             </div>
         </div>
     </div>
 
-    <!-- 2. HISTORY SECTION -->
+    <!-- HISTORY SECTION -->
     <div id="section-history" class="view-section">
         <h3>Game History</h3>
         <p style="text-align:center; color:#666;">የቀደሙ ጨዋታዎች ታሪክ የለም።</p>
     </div>
 
-    <!-- 3. WALLET SECTION -->
+    <!-- WALLET SECTION -->
     <div id="section-wallet" class="view-section">
         <h3>Wallet</h3>
         <div style="background: var(--purple-main); color: white; padding: 20px; border-radius: 15px; text-align: center;">
@@ -208,7 +260,7 @@
         </div>
     </div>
 
-    <!-- 4. PROFILE SECTION -->
+    <!-- PROFILE SECTION -->
     <div id="section-profile" class="view-section">
         <h3>Account</h3>
         <div style="background: white; padding: 15px; border-radius: 12px;">
@@ -240,94 +292,62 @@
 </div>
 
 <script>
-    let socket;
-    try {
-        socket = io();
-    } catch(e) {
-        console.error("Socket error", e);
-    }
-
+    let socket = io();
     let selectedStake = null;
+    let myBingoNumbers = [];
 
     document.addEventListener('DOMContentLoaded', () => {
+        socket.emit('initUser', { username: '@Mister_handsome12', phone: '251912503933' });
 
-        if (socket) {
-            socket.emit('initUser', { username: '@Mister_handsome12', phone: '251912503933' });
+        socket.on('profileData', (data) => {
+            const bal = data.balance ? data.balance.toFixed(2) : "0.00";
+            document.querySelectorAll('.wallet-val').forEach(el => el.innerText = bal);
+            document.getElementById('user-bal').innerText = bal;
+        });
 
-            socket.on('profileData', (data) => {
-                const bal = (data && data.balance) ? data.balance.toFixed(2) : "0.00";
-                document.querySelectorAll('.wallet-val').forEach(el => el.innerText = bal);
-                document.getElementById('user-bal').innerText = bal;
-            });
+        socket.on('updateOnlineCount', (count) => {
+            document.getElementById('online-count').innerText = count;
+        });
 
-            socket.on('updateOnlineCount', (count) => {
-                document.getElementById('online-count').innerText = count;
-            });
+        socket.on('timerUpdate', (time) => {
+            document.getElementById('timer-count').innerText = time;
+        });
 
-            socket.on('timerUpdate', (time) => {
-                document.getElementById('timer-count').innerText = time;
-            });
+        // 🎲 ቁጥር ሲጠራ የሚመጣብን Event
+        socket.on('numberCalled', (data) => {
+            document.getElementById('current-call').innerText = data.number;
+        });
 
-            socket.on('roomState', (state) => {
-                if (state && state.isStarted) {
-                    showOverlay("🎮 ጨዋታው ተጀምሯል፤ እባክዎን እስኪያልቅ ይጠብቁ!");
-                }
-                if (state && state.occupiedCartelas) {
-                    for (let cId in state.occupiedCartelas) {
-                        markCartelaOccupied(cId);
-                    }
-                }
-            });
+        socket.on('cartelaConfirmed', ({ cartelaId }) => {
+            openPlayArea(cartelaId);
+        });
 
-            socket.on('cartelaOccupied', ({ cartelaId }) => {
-                markCartelaOccupied(cartelaId);
-            });
+        socket.on('falseBingoEliminated', (data) => {
+            showOverlay(data.message);
+        });
 
-            socket.on('cartelaConfirmed', ({ cartelaId }) => {
-                openPlayArea(cartelaId);
-            });
-
-            socket.on('falseBingoEliminated', (data) => {
-                showOverlay(data.message);
-                document.getElementById('play-area').style.pointerEvents = 'none';
-                document.getElementById('play-area').style.opacity = '0.5';
-            });
-        }
-
-        // Navigation tab listeners
+        // Tabs
         document.querySelectorAll('.nav-item').forEach(item => {
             item.addEventListener('click', function() {
                 const tabName = this.getAttribute('data-tab');
-                
                 document.querySelectorAll('.view-section').forEach(s => s.classList.remove('active-section'));
                 document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-                
                 document.getElementById(`section-${tabName}`).classList.add('active-section');
                 this.classList.add('active');
             });
         });
 
-        // Stake buttons
         document.getElementById('btn-stake-10').addEventListener('click', () => selectStake(10));
         document.getElementById('btn-stake-20').addEventListener('click', () => selectStake(20));
-
-        // Game buttons
-        document.getElementById('btn-refresh').addEventListener('click', () => {
-            if (socket) socket.emit('refreshGame');
-        });
-
-        document.getElementById('btn-bingo').addEventListener('click', () => {
-            if (socket) socket.emit('claimBingo');
-        });
+        document.getElementById('btn-bingo').addEventListener('click', () => socket.emit('claimBingo'));
     });
 
     function selectStake(stake) {
         selectedStake = stake;
         document.getElementById('stake-selection').style.display = 'none';
         document.getElementById('cartela-selection').style.display = 'block';
-
         renderCartelaGrid();
-        if (socket) socket.emit('joinRoom', { stake: stake });
+        socket.emit('joinRoom', { stake: stake });
     }
 
     function renderCartelaGrid() {
@@ -344,33 +364,49 @@
     }
 
     function chooseCartela(cId) {
-        const btn = document.getElementById(`cartela-${cId}`);
-        if (!btn || btn.classList.contains('occupied')) return;
-
-        // Immediately highlight the chosen button
-        btn.classList.add('my-selection');
-
-        if (socket) {
-            socket.emit('selectCartela', { stake: selectedStake, cartelaId: cId });
-        }
-
-        // Auto transition into the game screen
-        setTimeout(() => {
-            openPlayArea(cId);
-        }, 300);
+        socket.emit('selectCartela', { stake: selectedStake, cartelaId: cId });
+        openPlayArea(cId);
     }
 
+    // 🎲 የ 5x5 Bingo Board ማፍረሻና ማዘጋጃ Logic
     function openPlayArea(cId) {
         document.getElementById('selected-cartela-num').innerText = `#${cId}`;
         document.getElementById('cartela-selection').style.display = 'none';
         document.getElementById('play-area').style.display = 'block';
+
+        generateBingoCardNumbers(cId);
     }
 
-    function markCartelaOccupied(cId) {
-        const btn = document.getElementById(`cartela-${cId}`);
-        if (btn) {
-            btn.classList.add('occupied');
+    function generateBingoCardNumbers(cartelaId) {
+        const board = document.getElementById('bingo-board');
+        board.innerHTML = '';
+        
+        // በካርተላ ቁጥሩ መሠረት Deterministic 24 randomized Bingo Numbers ማፍራት
+        let numbers = [];
+        let seed = cartelaId * 7;
+        for (let i = 0; i < 25; i++) {
+            if (i === 12) {
+                numbers.push("FREE");
+            } else {
+                let val = ((seed + i * 13) % 75) + 1;
+                numbers.push(val);
+            }
         }
+
+        numbers.forEach((num, index) => {
+            const cell = document.createElement('div');
+            cell.className = 'bingo-cell';
+            if (num === "FREE") {
+                cell.classList.add('free', 'marked');
+                cell.innerText = "FREE";
+            } else {
+                cell.innerText = num;
+                cell.onclick = () => {
+                    cell.classList.toggle('marked');
+                };
+            }
+            board.appendChild(cell);
+        });
     }
 
     function showOverlay(msg) {
