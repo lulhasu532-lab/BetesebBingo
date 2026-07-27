@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>One bingo</title>
-    <!-- Socket.io library with CDN fallback -->
     <script src="/socket.io/socket.io.js"></script>
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
     <style>
@@ -67,9 +66,7 @@
             font-size: 18px;
             font-weight: bold;
             cursor: pointer;
-            outline: none;
         }
-        .stake-btn:active { transform: scale(0.98); }
         .stake-10 { background-color: #00897b; }
         .stake-20 { background-color: #fb8c00; }
 
@@ -205,14 +202,14 @@
             </span>
         </div>
 
-        <!-- 1. Stake Selection -->
+        <!-- Stake Selection -->
         <div id="stake-selection" class="stake-card">
             <h2 style="margin-top: 0;">Choose Your Stake</h2>
             <button class="stake-btn stake-10" onclick="selectStake(10)">Play 10</button>
             <button class="stake-btn stake-20" onclick="selectStake(20)">Play 20</button>
         </div>
 
-        <!-- 2. Cartela Selection -->
+        <!-- Cartela Selection -->
         <div id="cartela-selection" style="display: none;">
             <div style="background: #e0f7fa; padding: 10px; border-radius: 10px; text-align: center; font-weight: bold; color: #006064;">
                 ⏳ ጨዋታው ለመጀመር: <span id="timer-count">15</span> ሰከንድ | 👥 ኦንላይን: <span id="online-count">1</span>
@@ -221,7 +218,7 @@
             <div id="cartela-grid-container" class="cartela-grid"></div>
         </div>
 
-        <!-- 3. Playing Area -->
+        <!-- Play Area -->
         <div id="play-area" style="display: none;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
                 <span style="background: white; padding: 6px 12px; border-radius: 8px; font-weight: bold;">
@@ -230,10 +227,17 @@
                 <button id="btn-bingo" onclick="claimBingo()" style="background: #e65100; color: white; border: none; padding: 8px 20px; border-radius: 8px; font-weight: bold; font-size: 16px; cursor: pointer;">Bingo!</button>
             </div>
 
-            <div style="text-align: center; background: white; padding: 10px; border-radius: 12px; font-size: 22px; font-weight: bold;">
-                የተጠራው ቁጥር: <span id="current-call" style="color: red; font-size: 30px;">-</span>
+            <!-- Status Banner -->
+            <div id="game-status-banner" style="background: #fff3e0; color: #e65100; padding: 8px; border-radius: 8px; text-align: center; font-weight: bold; margin-bottom: 8px;">
+                ⏳ ጨዋታው ለመጀመር <span id="play-timer-count">15</span> ሰከንድ ቀረው...
             </div>
 
+            <!-- Called Number Display -->
+            <div style="text-align: center; background: white; padding: 10px; border-radius: 12px; font-size: 20px; font-weight: bold;">
+                የተጠራው ቁጥር: <span id="current-call" style="color: red; font-size: 32px;">-</span>
+            </div>
+
+            <!-- 5x5 BINGO CARD GRID -->
             <div class="bingo-board-container">
                 <div class="bingo-header">
                     <span>B</span><span>I</span><span>N</span><span>G</span><span>O</span>
@@ -243,13 +247,12 @@
         </div>
     </div>
 
-    <!-- HISTORY SECTION -->
+    <!-- OTHER TABS -->
     <div id="section-history" class="view-section">
         <h3>Game History</h3>
         <p style="text-align:center; color:#666;">የቀደሙ ጨዋታዎች ታሪክ የለም።</p>
     </div>
 
-    <!-- WALLET SECTION -->
     <div id="section-wallet" class="view-section">
         <h3>Wallet</h3>
         <div style="background: var(--purple-main); color: white; padding: 20px; border-radius: 15px; text-align: center;">
@@ -258,7 +261,6 @@
         </div>
     </div>
 
-    <!-- PROFILE SECTION -->
     <div id="section-profile" class="view-section">
         <h3>Account</h3>
         <div style="background: white; padding: 15px; border-radius: 12px;">
@@ -271,7 +273,6 @@
         <div id="overlay-text"></div>
     </div>
 
-    <!-- Bottom Navigation Bar -->
     <div class="bottom-nav">
         <div class="nav-item active" onclick="switchTab('game', this)">
             <span class="nav-item-icon">🎮</span>Game
@@ -293,14 +294,11 @@
     let socket = null;
     let selectedStake = null;
 
-    // Safely Initialize Socket
     try {
         if (typeof io !== 'undefined') {
             socket = io();
         }
-    } catch (e) {
-        console.log("Socket connection error:", e);
-    }
+    } catch (e) { console.log("Socket Error:", e); }
 
     if (socket) {
         socket.emit('initUser', { username: '@Mister_handsome12', phone: '251912503933' });
@@ -312,15 +310,29 @@
         });
 
         socket.on('updateOnlineCount', (count) => {
-            document.getElementById('online-count').innerText = count;
+            const el = document.getElementById('online-count');
+            if(el) el.innerText = count;
         });
 
         socket.on('timerUpdate', (time) => {
-            document.getElementById('timer-count').innerText = time;
+            const t1 = document.getElementById('timer-count');
+            const t2 = document.getElementById('play-timer-count');
+            if(t1) t1.innerText = time;
+            if(t2) t2.innerText = time;
+        });
+
+        socket.on('gameStarted', () => {
+            const banner = document.getElementById('game-status-banner');
+            if(banner) {
+                banner.style.background = '#e8f5e9';
+                banner.style.color = '#2e7d32';
+                banner.innerText = '🎲 ጨዋታው ተጀምሯል! ቁጥር እየተጠራ ነው...';
+            }
         });
 
         socket.on('numberCalled', (data) => {
-            document.getElementById('current-call').innerText = data.number;
+            const callEl = document.getElementById('current-call');
+            if(callEl) callEl.innerText = data.number;
         });
 
         socket.on('falseBingoEliminated', (data) => {
@@ -328,16 +340,12 @@
         });
     }
 
-    // Direct Inline Functions to avoid event attachment issues
     function selectStake(stake) {
         selectedStake = stake;
         document.getElementById('stake-selection').style.display = 'none';
         document.getElementById('cartela-selection').style.display = 'block';
-        
         renderCartelaGrid();
-        if (socket) {
-            socket.emit('joinRoom', { stake: stake });
-        }
+        if (socket) socket.emit('joinRoom', { stake: stake });
     }
 
     function renderCartelaGrid() {
@@ -354,9 +362,7 @@
     }
 
     function chooseCartela(cId) {
-        if (socket) {
-            socket.emit('selectCartela', { stake: selectedStake, cartelaId: cId });
-        }
+        if (socket) socket.emit('selectCartela', { stake: selectedStake, cartelaId: cId });
         openPlayArea(cId);
     }
 
@@ -368,39 +374,64 @@
         generateBingoCardNumbers(cId);
     }
 
+    // 🎯 STANDARD B-I-N-G-O GENERATION LOGIC
     function generateBingoCardNumbers(cartelaId) {
         const board = document.getElementById('bingo-board');
         board.innerHTML = '';
-        
-        let seed = cartelaId * 7;
-        for (let i = 0; i < 25; i++) {
-            const cell = document.createElement('div');
-            cell.className = 'bingo-cell';
 
-            if (i === 12) {
-                cell.classList.add('free', 'marked');
-                cell.innerText = "FREE";
-            } else {
-                let val = ((seed + i * 13) % 75) + 1;
-                cell.innerText = val;
-                cell.onclick = function() {
-                    this.classList.toggle('marked');
-                };
+        function getColumnNums(min, max, count, seed) {
+            let pool = [];
+            for (let i = min; i <= max; i++) pool.push(i);
+            let result = [];
+            for (let i = 0; i < count; i++) {
+                let idx = (seed * (i + 1) + cartelaId * 3) % pool.length;
+                result.push(pool.splice(idx, 1)[0]);
             }
-            board.appendChild(cell);
+            return result;
+        }
+
+        // Standard Ranges: B:1-15 | I:16-30 | N:31-45 | G:46-60 | O:61-75
+        let bNums = getColumnNums(1, 15, 5, cartelaId + 1);
+        let iNums = getColumnNums(16, 30, 5, cartelaId + 2);
+        let nNums = getColumnNums(31, 45, 4, cartelaId + 3);
+        let gNums = getColumnNums(46, 60, 5, cartelaId + 4);
+        let oNums = getColumnNums(61, 75, 5, cartelaId + 5);
+
+        let gridMatrix = [
+            [bNums[0], iNums[0], nNums[0], gNums[0], oNums[0]],
+            [bNums[1], iNums[1], nNums[1], gNums[1], oNums[1]],
+            [bNums[2], iNums[2], "FREE",    gNums[2], oNums[2]],
+            [bNums[3], iNums[3], nNums[2], gNums[3], oNums[3]],
+            [bNums[4], iNums[4], nNums[3], gNums[4], oNums[4]]
+        ];
+
+        for (let r = 0; r < 5; r++) {
+            for (let c = 0; c < 5; c++) {
+                let val = gridMatrix[r][c];
+                const cell = document.createElement('div');
+                cell.className = 'bingo-cell';
+
+                if (val === "FREE") {
+                    cell.classList.add('free', 'marked');
+                    cell.innerText = "FREE";
+                } else {
+                    cell.innerText = val;
+                    cell.onclick = function() {
+                        this.classList.toggle('marked');
+                    };
+                }
+                board.appendChild(cell);
+            }
         }
     }
 
     function claimBingo() {
-        if (socket) {
-            socket.emit('claimBingo');
-        }
+        if (socket) socket.emit('claimBingo');
     }
 
     function switchTab(tabName, el) {
         document.querySelectorAll('.view-section').forEach(s => s.classList.remove('active-section'));
         document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-        
         document.getElementById(`section-${tabName}`).classList.add('active-section');
         el.classList.add('active');
     }
