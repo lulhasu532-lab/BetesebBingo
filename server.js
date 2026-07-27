@@ -7,12 +7,12 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(__dirname));
 app.use(express.json());
 
-// Main App Route (Serves index.html or app.js based on setup)
+// GitHub ላይ አዲሱን UI በ app.js ስለተካኸው ቀጥታ app.js እንዲከፈት እናደርጋለን
 app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'index.html'));
+    res.sendFile(path.join(__dirname, 'app.js'));
 });
 
 // Game Rooms Setup
