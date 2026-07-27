@@ -11,11 +11,10 @@
             --purple-main: #5d1089;
             --purple-card: #eadef7;
             --disabled-color: #888888;
+            --selected-color: #d32f2f;
         }
 
-        * {
-            box-sizing: border-box;
-        }
+        * { box-sizing: border-box; }
 
         body {
             font-family: Arial, sans-serif;
@@ -89,12 +88,19 @@
             border-radius: 8px;
             font-weight: bold;
             cursor: pointer;
+            transition: background 0.2s;
         }
 
         .cartela-item.occupied {
             background-color: var(--disabled-color) !important;
             cursor: not-allowed;
             opacity: 0.6;
+        }
+
+        .cartela-item.my-selection {
+            background-color: var(--selected-color) !important;
+            color: white;
+            font-weight: bold;
         }
 
         .overlay-msg {
@@ -156,12 +162,14 @@
             </span>
         </div>
 
+        <!-- Stake Selection -->
         <div id="stake-selection" class="stake-card">
             <h2 style="margin-top: 0;">Choose Your Stake</h2>
             <button class="stake-btn stake-10" id="btn-stake-10">Play 10</button>
             <button class="stake-btn stake-20" id="btn-stake-20">Play 20</button>
         </div>
 
+        <!-- Cartela Selection -->
         <div id="cartela-selection" style="display: none;">
             <div style="background: #e0f7fa; padding: 10px; border-radius: 10px; text-align: center; font-weight: bold; color: #006064;">
                 ⏳ ጨዋታው ለመጀመር: <span id="timer-count">15</span> ሰከንድ | 👥 ኦንላይን: <span id="online-count">1</span>
@@ -170,7 +178,11 @@
             <div id="cartela-grid-container" class="cartela-grid"></div>
         </div>
 
+        <!-- Play Area -->
         <div id="play-area" style="display: none;">
+            <div style="background: white; padding: 10px; border-radius: 12px; margin-bottom: 10px; text-align: center; font-weight: bold;">
+                የመረጡት ካርተላ: <span id="selected-cartela-num" style="color: var(--purple-main); font-size: 18px;">#-</span>
+            </div>
             <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
                 <button id="btn-refresh" style="background: #1976d2; color: white; border: none; padding: 10px 18px; border-radius: 8px; cursor: pointer;">🔄 Refresh</button>
                 <button id="btn-bingo" style="background: #e65100; color: white; border: none; padding: 10px 18px; border-radius: 8px; font-weight: bold; cursor: pointer;">Bingo!</button>
@@ -272,8 +284,7 @@
             });
 
             socket.on('cartelaConfirmed', ({ cartelaId }) => {
-                document.getElementById('cartela-selection').style.display = 'none';
-                document.getElementById('play-area').style.display = 'block';
+                openPlayArea(cartelaId);
             });
 
             socket.on('falseBingoEliminated', (data) => {
@@ -283,7 +294,7 @@
             });
         }
 
-        // Navigation tab click listeners
+        // Navigation tab listeners
         document.querySelectorAll('.nav-item').forEach(item => {
             item.addEventListener('click', function() {
                 const tabName = this.getAttribute('data-tab');
@@ -296,11 +307,11 @@
             });
         });
 
-        // Stake button listeners
+        // Stake buttons
         document.getElementById('btn-stake-10').addEventListener('click', () => selectStake(10));
         document.getElementById('btn-stake-20').addEventListener('click', () => selectStake(20));
 
-        // Action buttons
+        // Game buttons
         document.getElementById('btn-refresh').addEventListener('click', () => {
             if (socket) socket.emit('refreshGame');
         });
@@ -327,16 +338,32 @@
             div.className = 'cartela-item';
             div.id = `cartela-${i}`;
             div.innerText = `#${i}`;
-            div.addEventListener('click', () => chooseCartela(i));
+            div.onclick = () => chooseCartela(i);
             container.appendChild(div);
         }
     }
 
     function chooseCartela(cId) {
         const btn = document.getElementById(`cartela-${cId}`);
-        if (btn.classList.contains('occupied')) return;
+        if (!btn || btn.classList.contains('occupied')) return;
 
-        if (socket) socket.emit('selectCartela', { stake: selectedStake, cartelaId: cId });
+        // Immediately highlight the chosen button
+        btn.classList.add('my-selection');
+
+        if (socket) {
+            socket.emit('selectCartela', { stake: selectedStake, cartelaId: cId });
+        }
+
+        // Auto transition into the game screen
+        setTimeout(() => {
+            openPlayArea(cId);
+        }, 300);
+    }
+
+    function openPlayArea(cId) {
+        document.getElementById('selected-cartela-num').innerText = `#${cId}`;
+        document.getElementById('cartela-selection').style.display = 'none';
+        document.getElementById('play-area').style.display = 'block';
     }
 
     function markCartelaOccupied(cId) {
