@@ -10,32 +10,27 @@ const io = new Server(server);
 app.use(express.static(__dirname));
 app.use(express.json());
 
-// GitHub ላይ አዲሱን UI በ app.js ስለተካኸው ቀጥታ app.js እንዲከፈት እናደርጋለን
 app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'app.js'));
+    res.sendFile(path.join(__dirname, 'index.html'));
 });
 
-// Game Rooms Setup
+// Rooms Definition
 let rooms = {
-    '10': { stake: 10, players: {}, timer: 15, isStarted: false, calledNumbers: [], occupiedCartelas: {}, timerInterval: null },
-    '20': { stake: 20, players: {}, timer: 15, isStarted: false, calledNumbers: [], occupiedCartelas: {}, timerInterval: null }
+    '10': { stake: 10, players: {}, timer: 15, isStarted: false, calledNumbers: [], occupiedCartelas: {}, timerInterval: null, numberInterval: null },
+    '20': { stake: 20, players: {}, timer: 15, isStarted: false, calledNumbers: [], occupiedCartelas: {}, timerInterval: null, numberInterval: null }
 };
 
 io.on('connection', (socket) => {
-    console.log('User connected:', socket.id);
-
-    // Initial Player Data
     socket.on('initUser', (userData) => {
         socket.userData = {
             id: socket.id,
             username: userData.username || '@Mister_handsome12',
             phone: userData.phone || '251912503933',
-            balance: 170.00
+            balance: 0.00
         };
         socket.emit('profileData', socket.userData);
     });
 
-    // Room Join Event
     socket.on('joinRoom', ({ stake }) => {
         const room = rooms[stake];
         if (!room) return;
@@ -49,7 +44,8 @@ io.on('connection', (socket) => {
         socket.emit('roomState', {
             isStarted: room.isStarted,
             timer: room.timer,
-            occupiedCartelas: room.occupiedCartelas
+            occupiedCartelas: room.occupiedCartelas,
+            calledNumbers: room.calledNumbers
         });
 
         if (!room.timerInterval && !room.isStarted) {
@@ -57,7 +53,6 @@ io.on('connection', (socket) => {
         }
     });
 
-    // Cartela Selection (#1 - #100)
     socket.on('selectCartela', ({ stake, cartelaId }) => {
         const room = rooms[stake];
         if (!room || room.isStarted) return;
@@ -71,13 +66,6 @@ io.on('connection', (socket) => {
         socket.emit('cartelaConfirmed', { cartelaId });
     });
 
-    // Handle Smart Refresh
-    socket.on('refreshGame', () => {
-        if (!socket.currentRoom) return;
-        socket.emit('gameRefreshed', { status: 'success' });
-    });
-
-    // Handle False Bingo & Elimination
     socket.on('claimBingo', () => {
         const stake = socket.currentRoom;
         if (!stake) return;
@@ -93,17 +81,13 @@ io.on('connection', (socket) => {
 
     socket.on('disconnect', () => {
         if (socket.currentRoom) {
-            const room = rooms[socket.currentRoom];
-            if (room && room.players[socket.id]) {
-                delete room.players[socket.id];
-            }
             const onlineCount = io.sockets.adapter.rooms.get(`room_${socket.currentRoom}`)?.size || 0;
             io.to(`room_${socket.currentRoom}`).emit('updateOnlineCount', onlineCount);
         }
     });
 });
 
-// 15 Seconds Timer Logic
+// Lobby Timer Logic
 function startLobbyTimer(stake) {
     const room = rooms[stake];
     room.timer = 15;
@@ -115,14 +99,37 @@ function startLobbyTimer(stake) {
         if (room.timer <= 0) {
             clearInterval(room.timerInterval);
             room.timerInterval = null;
-            if (Object.keys(room.players).length > 0) {
-                room.isStarted = true;
-                io.to(`room_${stake}`).emit('gameStarted');
-            } else {
-                room.timer = 15;
-            }
+            room.isStarted = true;
+            io.to(`room_${stake}`).emit('gameStarted');
+            startGameCallingNumbers(stake);
         }
     }, 1000);
+}
+
+// 🎲 Automatic Number Calling Logic (በየ 3 ሰከንዱ ቁጥር መጥሪያ)
+function startGameCallingNumbers(stake) {
+    const room = rooms[stake];
+    room.calledNumbers = [];
+
+    room.numberInterval = setInterval(() => {
+        if (room.calledNumbers.length >= 75) {
+            clearInterval(room.numberInterval);
+            return;
+        }
+
+        let randomNum;
+        do {
+            randomNum = Math.floor(Math.random() * 75) + 1;
+        } while (room.calledNumbers.includes(randomNum));
+
+        room.calledNumbers.push(randomNum);
+
+        // ለተጫዋቾች በሙሉ ቁጥሩን መላክ
+        io.to(`room_${stake}`).emit('numberCalled', {
+            number: randomNum,
+            history: room.calledNumbers
+        });
+    }, 3000); // በየ3 ሰከንዱ አዲስ ቁጥር ይጠራል
 }
 
 const PORT = process.env.PORT || 3000;
