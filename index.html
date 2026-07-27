@@ -322,15 +322,11 @@
         });
 
         socket.on('gameStarted', () => {
-            const banner = document.getElementById('game-status-banner');
-            if(banner) {
-                banner.style.background = '#e8f5e9';
-                banner.style.color = '#2e7d32';
-                banner.innerText = '🎲 ጨዋታው ተጀምሯል! ቁጥር እየተጠራ ነው...';
-            }
+            setBannerStarted();
         });
 
         socket.on('numberCalled', (data) => {
+            setBannerStarted();
             const callEl = document.getElementById('current-call');
             if(callEl) callEl.innerText = data.number;
         });
@@ -338,6 +334,15 @@
         socket.on('falseBingoEliminated', (data) => {
             showOverlay(data.message);
         });
+    }
+
+    function setBannerStarted() {
+        const banner = document.getElementById('game-status-banner');
+        if(banner) {
+            banner.style.background = '#e8f5e9';
+            banner.style.color = '#2e7d32';
+            banner.innerText = '🎲 ጨዋታው ተጀምሯል! ቁጥር እየተጠራ ነው...';
+        }
     }
 
     function selectStake(stake) {
@@ -374,7 +379,6 @@
         generateBingoCardNumbers(cId);
     }
 
-    // 🎯 STANDARD B-I-N-G-O GENERATION LOGIC
     function generateBingoCardNumbers(cartelaId) {
         const board = document.getElementById('bingo-board');
         board.innerHTML = '';
@@ -390,7 +394,6 @@
             return result;
         }
 
-        // Standard Ranges: B:1-15 | I:16-30 | N:31-45 | G:46-60 | O:61-75
         let bNums = getColumnNums(1, 15, 5, cartelaId + 1);
         let iNums = getColumnNums(16, 30, 5, cartelaId + 2);
         let nNums = getColumnNums(31, 45, 4, cartelaId + 3);
