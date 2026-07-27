@@ -3,40 +3,314 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>One Bingo</title>
-    <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <title>Afro Bingo</title>
+    <script src="/socket.io/socket.io.js"></script>
     <style>
-        body { background-color: #0f172a; color: white; font-family: sans-serif; margin: 0; padding: 15px; }
-        .card { background: #1e293b; border-radius: 12px; padding: 15px; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center; border: 1px solid #334155; }
-        .btn { background: #2563eb; color: white; border: none; padding: 10px 18px; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 14px; }
-        .btn:active { transform: scale(0.96); }
+        :root {
+            --bg-color: #cbb8e3;
+            --purple-main: #5d1089;
+            --purple-card: #eadef7;
+            --disabled-color: #888888;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            background-color: var(--bg-color);
+            margin: 0;
+            padding: 0;
+            user-select: none;
+        }
+
+        .container {
+            max-width: 450px;
+            margin: 0 auto;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        .view-section { display: none; padding: 15px; }
+        .active-section { display: block; }
+
+        .welcome-card {
+            background: linear-gradient(135deg, #7b1fa2, #4a148c);
+            color: white;
+            text-align: center;
+            padding: 20px;
+            border-radius: 20px;
+            font-size: 22px;
+            font-weight: bold;
+        }
+
+        .stake-btn {
+            width: 100%;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 25px;
+            border: none;
+            color: white;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .stake-10 { background-color: #00897b; }
+        .stake-20 { background-color: #fb8c00; }
+
+        .cartela-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 8px;
+            max-height: 400px;
+            overflow-y: auto;
+            margin-top: 10px;
+        }
+
+        .cartela-item {
+            background-color: #2196f3;
+            color: white;
+            text-align: center;
+            padding: 12px;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .cartela-item.occupied {
+            background-color: var(--disabled-color) !important;
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+
+        .overlay-msg {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.85);
+            color: white;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            padding: 20px;
+            z-index: 100;
+        }
+
+        .bottom-nav {
+            display: flex;
+            justify-content: space-around;
+            background-color: white;
+            padding: 10px 0;
+            border-top-left-radius: 20px;
+            border-top-right-radius: 20px;
+            position: sticky;
+            bottom: 0;
+        }
+
+        .nav-item {
+            text-align: center;
+            color: #666;
+            cursor: pointer;
+            font-size: 12px;
+            flex-grow: 1;
+        }
+
+        .nav-item.active {
+            color: var(--purple-main);
+            font-weight: bold;
+        }
+
+        .nav-item-icon { font-size: 20px; display: block; }
     </style>
 </head>
 <body>
-    <div class="app-container">
-        <h2 style="text-align: center; color: #38bdf8;">እንኳን ወደ ቤተሰብ ቢንጎ መጡ! 👋</h2>
-        <p style="text-align: center; color: #94a3b8; font-size: 13px;">ለመጫወት ከታች ካሉት መደቦች አንዱን ይምረጡ</p>
 
-        <!-- ባለ 10 ብር መደብ -->
-        <div class="card">
-            <div>
-                <h3 style="margin: 0; color: #38bdf8;">ባለ 10 ብር መደብ</h3>
-                <span style="font-size: 11px; color: #22c55e;">ሸልማት፡ ተጫዋቾች እንደገቡ የሚሰላ</span>
-            </div>
-            <button onclick="openRoom(10)" class="btn">ግባ ተጫወት</button>
+<div class="container">
+    
+    <!-- 1. GAME SECTION -->
+    <div id="section-game" class="view-section active-section">
+        <div class="welcome-card">Welcome to Afro Bingo</div>
+        <div style="text-align:center; margin: 15px 0;">
+            <span style="background: white; padding: 8px 15px; border-radius: 15px; font-weight: bold;">
+                👛 Balance: <span id="user-bal">170.00</span> Br
+            </span>
         </div>
 
-        <!-- ባለ 20 ብር መደብ -->
-        <div class="card">
-            <div>
-                <h3 style="margin: 0; color: #38bdf8;">ባለ 20 ብር መደብ</h3>
-                <span style="font-size: 11px; color: #22c55e;">ሸልማት፡ ተጫዋቾች እንደገቡ የሚሰላ</span>
+        <div id="stake-selection" class="welcome-card" style="background: white; color: black;">
+            <h3>Choose Your Stake</h3>
+            <button class="stake-btn stake-10" onclick="selectStake(10)">Play 10</button>
+            <button class="stake-btn stake-20" onclick="selectStake(20)">Play 20</button>
+        </div>
+
+        <div id="cartela-selection" style="display: none;">
+            <div style="background: #e0f7fa; padding: 10px; border-radius: 10px; text-align: center; font-weight: bold;">
+                ⏳ ጨዋታው ለመጀመር: <span id="timer-count">15</span> ሰከንድ | 👥 ኦንላይን: <span id="online-count">1</span>
             </div>
-            <button onclick="openRoom(20)" class="btn">ግባ ተጫወት</button>
+            <h4>ካርተላ ይምረጡ (#1 - #100)</h4>
+            <div id="cartela-grid-container" class="cartela-grid"></div>
+        </div>
+
+        <div id="play-area" style="display: none;">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                <button onclick="refreshSocket()" style="background: #1976d2; color: white; border: none; padding: 8px 15px; border-radius: 8px;">🔄 Refresh</button>
+                <button onclick="claimBingo()" style="background: #e65100; color: white; border: none; padding: 8px 15px; border-radius: 8px; font-weight: bold;">Bingo!</button>
+            </div>
+            <div id="called-number-display" style="text-align: center; font-size: 28px; background: white; padding: 15px; border-radius: 10px; margin-bottom: 10px;">
+                Current Call: <span id="current-call" style="color: red;">-</span>
+            </div>
         </div>
     </div>
 
-    <script src="app.js"></script>
+    <!-- 2. HISTORY SECTION -->
+    <div id="section-history" class="view-section">
+        <h3>Game History</h3>
+        <div id="history-list"></div>
+    </div>
+
+    <!-- 3. WALLET SECTION -->
+    <div id="section-wallet" class="view-section">
+        <h3>Wallet</h3>
+        <div style="background: var(--purple-main); color: white; padding: 20px; border-radius: 15px;">
+            <small>TOTAL BALANCE</small>
+            22222222<h2>Br <span class="wallet-val">170.00</span></h2>
+        </div>
+    </div>
+
+    <!-- 4. PROFILE SECTION -->
+    <div id="section-profile" class="view-section">
+        <h3>Account</h3>
+        <p><strong>Username:</strong> <span id="prof-uname">@Mister_handsome12</span></p>
+        <p><strong>Phone:</strong> <span id="prof-phone">251912503933</span></p>
+    </div>
+
+    <div id="game-overlay" class="overlay-msg" style="display: none;">
+        <div id="overlay-text"></div>
+    </div>
+
+    <!-- Bottom Navigation Bar -->
+    <div class="bottom-nav">
+        <div class="nav-item active" onclick="switchTab('game', this)">
+            <span class="nav-item-icon">🎮</span>Game
+        </div>
+        <div class="nav-item" onclick="switchTab('history', this)">
+            <span class="nav-item-icon">📜</span>History
+        </div>
+        <div class="nav-item" onclick="switchTab('wallet', this)">
+            <span class="nav-item-icon">👛</span>Wallet
+        </div>
+        <div class="nav-item" onclick="switchTab('profile', this)">
+            <span class="nav-item-icon">👤</span>Profile
+        </div>
+    </div>
+
+</div>
+
+<script>
+    const socket = io();
+    let selectedStake = null;
+
+    socket.emit('initUser', { username: '@Mister_handsome12', phone: '251912503933' });
+
+    socket.on('profileData', (data) => {
+        document.querySelectorAll('.wallet-val').forEach(el => el.innerText = data.balance.toFixed(2));
+        document.getElementById('user-bal').innerText = data.balance.toFixed(2);
+        document.getElementById('prof-uname').innerText = data.username;
+        document.getElementById('prof-phone').innerText = data.phone;
+    });
+
+    function switchTab(tabName, el) {
+        document.querySelectorAll('.view-section').forEach(s => s.classList.remove('active-section'));
+        document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+        
+        document.getElementById(`section-${tabName}`).classList.add('active-section');
+        el.classList.add('active');
+    }
+
+    function selectStake(stake) {
+        selectedStake = stake;
+        document.getElementById('stake-selection').style.display = 'none';
+        document.getElementById('cartela-selection').style.display = 'block';
+
+        renderCartelaGrid();
+        socket.emit('joinRoom', { stake: stake });
+    }
+
+    function renderCartelaGrid() {
+        const container = document.getElementById('cartela-grid-container');
+        container.innerHTML = '';
+        for (let i = 1; i <= 100; i++) {
+            const div = document.createElement('div');
+            div.className = 'cartela-item';
+            div.id = `cartela-${i}`;
+            div.innerText = `#${i}`;
+            div.onclick = () => chooseCartela(i);
+            container.appendChild(div);
+        }
+    }
+
+    function chooseCartela(cId) {
+        const btn = document.getElementById(`cartela-${cId}`);
+        if (btn.classList.contains('occupied')) return;
+
+        socket.emit('selectCartela', { stake: selectedStake, cartelaId: cId });
+    }
+
+    socket.on('updateOnlineCount', (count) => {
+        document.getElementById('online-count').innerText = count;
+    });
+
+    socket.on('timerUpdate', (time) => {
+        document.getElementById('timer-count').innerText = time;
+    });
+
+    socket.on('roomState', (state) => {
+        if (state.isStarted) {
+            showOverlay("🎮 ጨዋታው ተጀምሯል፤ እባክዎን እስኪያልቅ ይጠብቁ!");
+        }
+        for (let cId in state.occupiedCartelas) {
+            markCartelaOccupied(cId);
+        }
+    });
+
+    socket.on('cartelaOccupied', ({ cartelaId }) => {
+        markCartelaOccupied(cartelaId);
+    });
+
+    function markCartelaOccupied(cId) {
+        const btn = document.getElementById(`cartela-${cId}`);
+        if (btn) {
+            btn.classList.add('occupied');
+            btn.onclick = null;
+        }
+    }
+
+    socket.on('cartelaConfirmed', ({ cartelaId, board }) => {
+        document.getElementById('cartela-selection').style.display = 'none';
+        document.getElementById('play-area').style.display = 'block';
+    });
+
+    function refreshSocket() {
+        socket.emit('refreshGame');
+    }
+
+    socket.on('gameRefreshed', (data) => {
+        console.log("Game state refreshed locally!");
+    });
+
+    function claimBingo() {
+        socket.emit('claimBingo');
+    }
+
+    socket.on('falseBingoEliminated', (data) => {
+        showOverlay(data.message);
+        document.getElementById('play-area').style.pointerEvents = 'none';
+        document.getElementById('play-area').style.opacity = '0.5';
+    });
+
+    function showOverlay(msg) {
+        const overlay = document.getElementById('game-overlay');
+        document.getElementById('overlay-text').innerHTML = `<h3>${msg}</h3>`;
+        overlay.style.display = 'flex';
+    }
+</script>
 </body>
 </html>
